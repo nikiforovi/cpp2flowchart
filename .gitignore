@@ -1,0 +1,10 @@
+.python-version
+
+.venv
+
+*.pyc
+__pycache__
+.pytest_cache/
+build/
+dist/
+examples/*.svg
