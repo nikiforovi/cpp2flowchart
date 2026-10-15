@@ -1,6 +1,6 @@
 # c2fc — C++ → блок-схема
 
-Конвертер исходного кода на C++ в блок-схемы (SVG) с GUI на PyQt6.
+Конвертер исходного кода на C++ в блок-схемы (SVG или draw.io) с GUI на PyQt6.
 Парсинг — tree-sitter (tree-sitter-cpp). Поддерживаемое подмножество C++:
 переменные, присваивания, `if/else`, `while`, `do…while`, `for`,
 `switch/case/default`, `break/continue/return`, функции,
@@ -24,19 +24,33 @@ GUI:
 python gui.py
 ```
 
+На Linux, если на машине есть системный Qt (например, Ubuntu `qt6-base`) и возникает
+ошибка `undefined symbol ... Qt_6_PRIVATE_API`, используйте вместо этого:
+
+```bash
+./gui_main.sh
+```
+
+(Скрипт автоматически добавляет PyQt6's Qt6/lib в `LD_LIBRARY_PATH` перед запуском Python.
+На Windows и macOS проблема не возникает.)
+
 CLI (генерация SVG из файла):
 
 ```bash
 python main.py examples/demo.cpp -o demo.svg
 ```
 
-Если на машине есть системный Qt (например, Ubuntu qt6-base) и PyQt6
-выдаёт ошибку `undefined symbol ... Qt_6_PRIVATE_API`, добавьте в путь
-библиотеки Qt из колёсиков PyQt6:
+Экспорт в draw.io (diagrams.net) — формат выбирается по расширению
+`-o` (`.drawio` / `.xml`) или флагом `-f drawio`:
 
 ```bash
-export LD_LIBRARY_PATH="$PWD/.venv/lib/python3.14/site-packages/PyQt6/Qt6/lib:$LD_LIBRARY_PATH"
+python main.py examples/complex.cpp -o complex.drawio
+python main.py examples/complex.cpp -f drawio   # -> examples/complex.drawio
 ```
+
+Каждая функция — отдельная страница; блоки — штатные фигуры draw.io,
+линии привязаны к блокам и сохраняют маршрут раскладки. В GUI —
+кнопка «Сохранить draw.io…».
 
 ## Тесты
 
@@ -71,6 +85,7 @@ flowchart/
   graph.py     # AST -> топологический граф блок-схемы
   layout.py    # геометрия: размеры, колонки, маршрутизация рёбер
   svg.py       # рендер в SVG
+  drawio.py    # экспорт в draw.io (mxfile XML)
   convert.py   # пайплайн source -> layout / SVG
 gui.py         # PyQt6-интерфейс
 main.py        # CLI

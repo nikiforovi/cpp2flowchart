@@ -31,6 +31,10 @@ class GEdge:
     down: bool = True     # participates in the top-down y ordering
     xmode: str = "down"   # 'down' -> same column, 'right' -> column + 1 + branch
     arrow: str = "auto"   # 'auto' | 'always' | 'never'
+    # "нет" branch of a decision whose "да" branch ends the flow (return):
+    # it may start right beside the decision instead of below the whole
+    # "да" subtree (the two branches never rejoin)
+    compact: bool = False
 
 
 @dataclass
@@ -42,6 +46,23 @@ class Tail:
     label: str = ""
     branch: int = 0
     arrow: str = "auto"
+    compact: bool = False
+
+
+def _terminates(body) -> bool:
+    """Does every path through `body` end with a `return`?"""
+    if not body:
+        return False
+    last = body[-1]
+    if isinstance(last, list):
+        return _terminates(last)
+    if isinstance(last, N.Return):
+        return True
+    if isinstance(last, N.If):
+        return (last.else_body is not None
+                and all(_terminates(b) for _, b in last.branches)
+                and _terminates(last.else_body))
+    return False
 
 
 @dataclass
@@ -64,6 +85,10 @@ class _Builder:
         self.is_main = func.name == "main"
         self.user_funcs = user_funcs or set()
         self.return_edges = 0
+        # the last top-level `return` flows into the shared end marker;
+        # every other (early) return gets its own terminal right below it
+        last = func.body[-1] if func.body else None
+        self.final_return = last if isinstance(last, N.Return) else None
         # main starts with "Начало", subroutines start with their name
         start_text = "Начало" if self.is_main else func.name
         self.start = self.add("terminal", start_text)
@@ -78,27 +103,39 @@ class _Builder:
 
     def edge(self, src: int, dst: int, sp: str, dp: str, *,
              label: str = "", branch: int = 0, down: bool | None = None,
-             xmode: str = "down", arrow: str = "auto") -> None:
+             xmode: str = "down", arrow: str = "auto",
+             compact: bool = False) -> None:
         if down is None:
             down = dp == "t" and sp in ("b", "r")
         self.edges.append(
-            GEdge(src, dst, sp, dp, label, branch, down, xmode, arrow)
+            GEdge(src, dst, sp, dp, label, branch, down, xmode, arrow,
+                  compact)
         )
 
     def connect(self, tails: list[Tail], dst: int, dst_port: str = "t") -> None:
         for t in tails:
             self.edge(t.node, dst, t.port, dst_port,
                       label=t.label, branch=t.branch, xmode=t.xmode,
-                      arrow=t.arrow)
+                      arrow=t.arrow, compact=t.compact)
 
     # ---- statements -------------------------------------------------------
     def wire(self, stmts: list, tails: list[Tail]) -> tuple[list[Tail], int | None]:
         n0 = len(self.nodes)
-        for st in stmts:
+        for i, st in enumerate(stmts):
+            rest = stmts[i + 1:]
+            if (isinstance(st, N.If) and st.else_body is None and rest
+                    and all(_terminates(b) for _, b in st.branches)):
+                # GOST: `if (c) { ...; return; } rest` is a full branch -
+                # "да" ends at its own terminal, "нет" carries the rest
+                st = N.If(branches=st.branches, else_body=list(rest),
+                          line=st.line)
+                rest = []
             active = [t for t in tails if t.kind == "n"]
             passthru = [t for t in tails if t.kind != "n"]
             # break/continue tails pass through untouched to the enclosing loop
             tails = self.apply(st, active) + passthru
+            if not rest:
+                break
         first = self.nodes[n0].id if len(self.nodes) > n0 else None
         return tails, first
 
@@ -119,10 +156,30 @@ class _Builder:
     def _VarDecl(self, s: N.VarDecl, tails: list[Tail]) -> list[Tail]:
         # GOST: no data types on the chart; keep * and & markers
         text = s.name + (f" = {s.init}" if s.init else "")
-        return self._simple(text, "process", tails)
+        # Check if the initializer is a call to a user-defined function
+        kind = "process"
+        if s.init:
+            import re
+            match = re.match(r"(\w+)\s*\(", s.init.strip())
+            if match:
+                func_name = match.group(1)
+                if func_name in self.user_funcs:
+                    kind = "predef"
+        return self._simple(text, kind, tails)
 
     def _Assign(self, s: N.Assign, tails: list[Tail]) -> list[Tail]:
-        return self._simple(f"{s.target} {s.op} {s.value}", "process", tails)
+        # Check if the right-hand side is a call to a user-defined function
+        import re
+        match = re.match(r"(\w+)\s*\(", s.value.strip())
+        if match and s.op == "=":
+            func_name = match.group(1)
+            if func_name in self.user_funcs:
+                kind = "predef"
+            else:
+                kind = "process"
+        else:
+            kind = "process"
+        return self._simple(f"{s.target} {s.op} {s.value}", kind, tails)
 
     def _ExprStmt(self, s: N.ExprStmt, tails: list[Tail]) -> list[Tail]:
         return self._simple(s.text, "process", tails)
@@ -142,22 +199,26 @@ class _Builder:
 
     def _Return(self, s: N.Return, tails: list[Tail]) -> list[Tail]:
         if self.is_main:
-            # main: 'return <const>' ends the flow at the end marker;
+            # main: all returns flow to the single end marker at the bottom (GOST).
             # 'return <expr>' is shown as a value block first (the value
             # still has to be computed before the program exits).
+            end = self.end
             if s.value and not re.fullmatch(r"[+-]?\d+", s.value.strip()):
                 nid = self.add("process", s.value.strip())
                 self.connect(tails, nid)
-                self.edge(nid, self.end, "b", "t")
+                self.edge(nid, end, "b", "t")
             else:
-                for t in tails:
-                    self.edge(t.node, self.end, t.port, "t",
-                              label=t.label, branch=t.branch, xmode=t.xmode)
+                self.connect(tails, end)
             return []
         text = "return" + (f" {s.value}" if s.value else "")
         nid = self.add("process", text)
         self.connect(tails, nid)
-        self.edge(nid, self.ret, "b", "t")
+        if self.return_edges == 0:
+            ret = self.ret
+            self.nodes[ret].col = self.cur_col
+        else:
+            ret = self.add("terminal", "Возврат")
+        self.edge(nid, ret, "b", "t")
         self.return_edges += 1
         return []
 
@@ -182,8 +243,11 @@ class _Builder:
             nonlocal prev_dec
             self.cur_col = base + idx
             cond_text, body = s.branches[idx]
+            # "да" ends with a return: the "нет" side never rejoins it
+            compact = _terminates(body)
             if idx > 0:
-                self.edge(prev_dec, dec, "r", "t", label="нет")
+                self.edge(prev_dec, dec, "r", "t", label="нет",
+                          compact=_terminates(s.branches[idx - 1][1]))
             else:
                 self.connect(tails, dec)
             # "yes" branch: body or empty direct link to the merge
@@ -200,19 +264,32 @@ class _Builder:
                 self.cur_col = base + idx + 1
                 if s.else_body:
                     et, _ = self.wire(
-                        s.else_body, [Tail(dec, "r", label="нет")]
+                        s.else_body,
+                        [Tail(dec, "r", label="нет", compact=compact)]
                     )
                     self._to_merge(et, merge, out)
                 else:
-                    self.edge(dec, merge, "r", "t", label="нет")
+                    self.edge(dec, merge, "r", "t", label="нет",
+                              compact=compact)
             else:
                 # simplified if: explicit empty "no" branch to the merge
-                self.edge(dec, merge, "r", "t", label="нет")
+                self.edge(dec, merge, "r", "t", label="нет",
+                          compact=compact)
 
         prev_dec = -1
         first = self.add("decision", s.branches[0][0])
         chain(0, first)
         self.cur_col = base
+        # a merge needs at least two joining lines; when the other
+        # branches all returned, the single survivor just flows on
+        into = [e for e in self.edges if e.dst == merge]
+        if len(into) <= 1:
+            self.nodes[merge].kind = "skip"
+            for e in into:
+                self.edges.remove(e)
+            return [Tail(e.src, e.src_port, label=e.label, branch=e.branch,
+                         xmode=e.xmode, arrow=e.arrow, compact=e.compact)
+                    for e in into] + out
         return [Tail(merge, "b")] + out
 
     def _to_merge(self, tails: list[Tail], merge: int, out: list[Tail]) -> None:
@@ -226,17 +303,49 @@ class _Builder:
             else:
                 out.append(t)
 
+    def _loop_back_junction(self, tails: list[Tail]) -> int:
+        """Single node whose bottom port feeds the loop-repeat back edge.
+
+        A body can leave more than one way that still has to go back to
+        the top of the loop (e.g. a plain fall-through *and* an explicit
+        `continue`). Drawing one back edge per tail would send two lines
+        converging on the same spot, overlapping for most of their
+        length; instead every such tail first joins an invisible
+        junction and exactly one back edge leaves from it.
+
+        A body that ends with a nested loop leaves through that loop's
+        side exit ("нет" of the counter/condition). Starting the back
+        edge there would run it over the nested "да" line; the junction
+        also takes care of that case for a single tail.
+        """
+        if len(tails) == 1 and tails[0].port == "b":
+            return tails[0].node
+        j = self.add("merge", "")
+        for t in tails:
+            self.edge(t.node, j, t.port, "t", label=t.label,
+                      branch=t.branch, xmode=t.xmode, arrow=t.arrow)
+        return j
+
     def _While(self, s: N.While, tails: list[Tail]) -> list[Tail]:
         dec = self.add("decision", s.cond or "true")
         self.connect(tails, dec)
         body_tails, _ = self.wire(s.body, [Tail(dec, "b", label="да")])
         out: list[Tail] = [Tail(dec, "r", label="нет")]
+        back: list[Tail] = []
         for t in body_tails:
             if t.kind in ("n", "c"):
-                # back edge joins the line above the condition (arrow!)
-                self.edge(t.node, dec, "b", "t", down=False, arrow="always")
+                if t.node == dec:
+                    # empty body: the "да" exit loops straight back
+                    self.edge(dec, dec, "b", "t", label="да", down=False,
+                              arrow="always")
+                    continue
+                back.append(t)
             else:  # break leaves the loop
                 out.append(Tail(t.node, t.port, kind="n", xmode=t.xmode))
+        if back:
+            # back edge joins the line above the condition (arrow!)
+            self.edge(self._loop_back_junction(back), dec, "b", "t",
+                      down=False, arrow="always")
         return out
 
     def _DoWhile(self, s: N.DoWhile, tails: list[Tail]) -> list[Tail]:
@@ -266,16 +375,19 @@ class _Builder:
             s.body, [Tail(hexagon, "b", label="да")]
         )
         out: list[Tail] = [Tail(hexagon, "r", label="нет")]
+        back: list[Tail] = []
         for t in body_tails:
             if t.kind in ("n", "c"):
-                # back edge enters the left edge of the counter block
                 if t.node == hexagon:
                     continue  # already handled (empty-ish body)
-                self.edge(t.node, hexagon, "b", "l", down=False,
-                          arrow="always")
+                back.append(t)
             else:  # break
                 out.append(Tail(t.node, t.port, kind="n", xmode=t.xmode))
-        if first is None and not body_tails:
+        if back:
+            # back edge enters the left edge of the counter block
+            self.edge(self._loop_back_junction(back), hexagon, "b", "l",
+                      down=False, arrow="always")
+        elif first is None and not body_tails:
             self.edge(hexagon, hexagon, "b", "l", label="да",
                       down=False, arrow="always")
         return out
@@ -438,13 +550,19 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
     tails, _ = b.wire(func.body, entry)
     for t in tails:
         b.edge(t.node, b.end, t.port, "t", label=t.label,
-               branch=t.branch, xmode=t.xmode)
-    # hide unused terminators (GOST: no empty end blocks) - but main
-    # always keeps its end marker
+               branch=t.branch, xmode=t.xmode, compact=t.compact)
+    # hide unused terminators (GOST: no empty end blocks)
     if b.return_edges == 0:
         b.nodes[b.ret].kind = "skip"
-    if not tails and not b.is_main:
+    into_end = [e for e in b.edges if e.dst == b.end]
+    if not into_end:
         b.nodes[b.end].kind = "skip"
+    else:
+        # the end marker sits under the flow that reaches it (e.g. the
+        # "нет" column after an early-return branch)
+        cols = {b.nodes[e.src].col for e in into_end}
+        if len(cols) == 1:
+            b.nodes[b.end].col = cols.pop()
     return Graph(
         name=func.name,
         signature=func.name + (f"({func.params})" if func.params else "()"),

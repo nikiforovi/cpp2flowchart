@@ -160,10 +160,14 @@ class TestLoops:
         dec = next(n for n in g.nodes if n.kind == "decision")
         b_node = next(n for n in g.nodes if n.text == "b()")
         assert any(e.dst == b_node.id for e in g.edges if e.src == brk.id)
-        assert any(
-            e.dst == dec.id and e.dst_port == "t"
-            for e in g.edges if e.src == cont.id
-        )
+        # continue may first join a shared junction with the other
+        # loop-back tail instead of a direct edge into the condition
+        seen = {cont.id}
+        frontier = {cont.id}
+        while frontier:
+            frontier = {e.dst for e in g.edges if e.src in frontier} - seen
+            seen |= frontier
+        assert dec.id in seen
 
     def test_nested_loops_break_targets_inner(self):
         src = """
@@ -330,15 +334,10 @@ def _line_hits_blocks(g: LGraph):
             for n in g.nodes:
                 if n.kind in ("merge",):
                     continue
-                # skip the nodes this edge connects to
-                nx, ny = n.x + n.w / 2, n.y + n.h / 2
-                is_endpoint = any(
-                    abs(nx - px) < n.w / 2 and abs(ny - py) < n.h / 2
-                    and abs(px - x0) < .1 and abs(py - y0) < .1
-                    or abs(px - x1) < .1 and abs(py - y1) < .1
-                    for px, py in (pts[0], pts[-1])
-                )
-                if is_endpoint:
+                # skip the nodes this edge connects to (the old check
+                # skipped *every* node for the last segment of an edge,
+                # hiding lines that enter their target through a block)
+                if n.id in (e.src, e.dst):
                     continue
                 if _seg_intersects_rect(
                     x0, y0, x1, y1,
@@ -440,6 +439,64 @@ GEOMETRY_COMPLEX = (
     [_COMPLEX_PATH.read_text(encoding="utf-8")]
     if _COMPLEX_PATH.exists() else []
 )
+
+_EXAMPLES = sorted(
+    (Path(__file__).resolve().parent.parent / "examples").glob("*.cpp")
+)
+
+# regression sources for the routing fixes
+ROUTING_SOURCES = [
+    # back edge of the outer loop used to enter the counter block through
+    # the "да" block of the early-return branch beside it
+    'int main() { int n; cin >> n; if (n < 1) { cout << "bad"; return 0; } '
+    'for (int i = 0; i < n; i++) { for (int j = 0; j < n; j++) '
+    '{ a(i, j); b(j); } c(); } d(); return 0; }',
+    # break used to drop straight through the continue/loop-back junction
+    'int main() { int k = 5; while (k > 0) { k--; if (k == 2) continue; '
+    'if (k == 1) break; } return 0; }',
+    # do-while + while: back edges and "нет" exits used to cross and run
+    # 2px apart into the same condition
+    'int main() { int k = 0; do { k++; } while (k < 3); '
+    'while (k > 0) { k--; if (k == 2) continue; if (k == 1) break; } '
+    'switch (k) { case 0: x(); break; case 1: y(); break; '
+    'default: z(); } return 0; }',
+    # three nested counters in a side column: needs a wider column gap
+    'int main() { int n; cin >> n; if (n < 0) { cout << "neg"; return 0; } '
+    'for (int i = 0; i < n; i++) { for (int j = 0; j < n; j++) '
+    '{ for (int k = 0; k < n; k++) { a(i, j, k); } } } return 0; }',
+] + [p.read_text(encoding="utf-8") for p in _EXAMPLES]
+
+
+class TestRouting:
+    """Lines never run through blocks/junctions or on top of each other."""
+
+    @pytest.mark.parametrize("src", ROUTING_SOURCES)
+    def test_no_line_through_blocks(self, src):
+        from geometry_check import node_hits
+        for g in convert(src):
+            assert not node_hits(g)
+            assert not _line_hits_blocks(g)
+
+    @pytest.mark.parametrize("src", ROUTING_SOURCES)
+    def test_no_lines_on_top_of_each_other(self, src):
+        from geometry_check import edge_overlaps
+        for g in convert(src):
+            assert not edge_overlaps(g)
+
+    @pytest.mark.parametrize("src", ROUTING_SOURCES)
+    def test_no_block_overlaps(self, src):
+        for g in convert(src):
+            assert not _overlaps(g)
+
+    def test_loop_back_edge_left_exit_right(self):
+        g = layout_of("void f() { while (c) { a(); } b(); }")
+        dec = next(n for n in g.nodes if n.kind == "decision")
+        back = next(e for e in g.edges if e.dst == dec.id
+                    and e.arrow == "always")
+        exit_ = next(e for e in g.edges if e.src == dec.id
+                     and e.label == "нет")
+        assert min(x for x, _ in back.points) < dec.x
+        assert max(x for x, _ in exit_.points) > dec.x + dec.w
 
 
 class TestGeometry:

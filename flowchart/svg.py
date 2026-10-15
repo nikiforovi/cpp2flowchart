@@ -5,18 +5,18 @@ from __future__ import annotations
 from .layout import LGraph, LNode, edge_arrow
 
 FONT = "DejaVu Sans, Segoe UI, Arial, sans-serif"
-STROKE = "#475569"
-TEXT = "#0f172a"
-EDGE = "#64748b"
+STROKE = "#000000"
+TEXT = "#000000"
+EDGE = "#000000"
 
 _FILL = {
-    "terminal": "#dbeafe",
+    "terminal": "#ffffff",
     "process": "#ffffff",
     "predef": "#ffffff",
-    "io": "#dcfce7",
-    "decision": "#fef9c3",
-    "hexagon": "#ede9fe",
-    "connector": "#fee2e2",
+    "io": "#ffffff",
+    "decision": "#ffffff",
+    "hexagon": "#ffffff",
+    "connector": "#ffffff",
     "merge": "#f8fafc",
 }
 
@@ -34,19 +34,19 @@ def _node_svg(n: LNode, ox: float, oy: float) -> str:
     if n.kind == "terminal":
         parts.append(
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" '
-            f'height="{h:.1f}" rx="{h / 2:.1f}" fill="{fill}" '
+            f'height="{h:.1f}" rx="{h / 2:.1f}" ry="{h / 2:.1f}" fill="{fill}" '
             f'stroke="{STROKE}" stroke-width="1.6"/>'
         )
     elif n.kind == "process":
         parts.append(
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" '
-            f'height="{h:.1f}" rx="6" fill="{fill}" '
+            f'height="{h:.1f}" rx="0" fill="{fill}" '
             f'stroke="{STROKE}" stroke-width="1.6"/>'
         )
     elif n.kind == "predef":
         parts.append(
             f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" '
-            f'height="{h:.1f}" rx="6" fill="{fill}" '
+            f'height="{h:.1f}" rx="0" fill="{fill}" '
             f'stroke="{STROKE}" stroke-width="1.6"/>'
         )
         for dx in (8.0, w - 8.0):

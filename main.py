@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI: convert a C++ file into an SVG flowchart."""
+"""CLI: convert a C++ file into a flowchart (SVG or draw.io)."""
 
 from __future__ import annotations
 
@@ -7,18 +7,31 @@ import argparse
 import sys
 from pathlib import Path
 
-from flowchart.convert import ParseError, convert_to_svg
+from flowchart.convert import ParseError, convert_to_drawio, convert_to_svg
+
+FORMATS = {"svg": (".svg", convert_to_svg),
+           "drawio": (".drawio", convert_to_drawio)}
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="c2fc",
-        description="Конвертер C++ в блок-схему (SVG).",
+        description="Конвертер C++ в блок-схему (SVG или draw.io).",
     )
     ap.add_argument("input", help="путь к .cpp файлу")
     ap.add_argument("-o", "--output",
-                    help="путь к выходному .svg (по умолчанию: рядом с входом)")
+                    help="путь к выходному файлу (по умолчанию: рядом с "
+                         "входом, расширение по формату)")
+    ap.add_argument("-f", "--format", choices=sorted(FORMATS),
+                    help="формат вывода; по умолчанию — по расширению "
+                         "--output (.drawio/.xml -> drawio), иначе svg")
     args = ap.parse_args(argv)
+
+    fmt = args.format
+    if fmt is None:
+        suffix = Path(args.output).suffix.lower() if args.output else ""
+        fmt = "drawio" if suffix in (".drawio", ".xml") else "svg"
+    ext, render = FORMATS[fmt]
 
     src_path = Path(args.input)
     try:
@@ -28,13 +41,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        svg = convert_to_svg(source)
+        doc = render(source)
     except ParseError as exc:
         print(f"ошибка парсинга (строка {exc.line}): {exc}", file=sys.stderr)
         return 2
 
-    out_path = Path(args.output) if args.output else src_path.with_suffix(".svg")
-    out_path.write_text(svg, encoding="utf-8")
+    out_path = Path(args.output) if args.output else src_path.with_suffix(ext)
+    out_path.write_text(doc, encoding="utf-8")
     print(f"схема сохранена: {out_path}")
     return 0
 

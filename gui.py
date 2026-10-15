@@ -14,10 +14,12 @@ from PyQt6.QtWidgets import (
     QApplication, QGraphicsScene, QGraphicsView, QInputDialog, QLabel,
     QPlainTextEdit, QSplitter, QToolBar, QVBoxLayout, QWidget,
     QGraphicsPathItem, QGraphicsSimpleTextItem, QFileDialog,
-    QGraphicsItemGroup,
+    QGraphicsItemGroup, QScrollArea,
 )
 
-from flowchart.convert import ParseError, convert, convert_to_svg
+from flowchart.convert import (
+    ParseError, convert, convert_to_drawio, convert_to_svg,
+)
 from flowchart.layout import LGraph, LNode, edge_arrow
 
 EXAMPLE = """#include <iostream>
@@ -53,17 +55,17 @@ int main() {
 """
 
 _COLORS = {
-    "terminal": ("#dbeafe", "#1d4ed8"),
-    "process": ("#ffffff", "#475569"),
-    "predef": ("#ffffff", "#7c3aed"),
-    "io": ("#dcfce7", "#15803d"),
-    "decision": ("#fef9c3", "#a16207"),
-    "hexagon": ("#ede9fe", "#6d28d9"),
-    "connector": ("#fee2e2", "#b91c1c"),
-    "merge": ("#f8fafc", "#475569"),
+    "terminal": ("#ffffff", "#000000"),
+    "process": ("#ffffff", "#000000"),
+    "predef": ("#ffffff", "#000000"),
+    "io": ("#ffffff", "#000000"),
+    "decision": ("#ffffff", "#000000"),
+    "hexagon": ("#ffffff", "#000000"),
+    "connector": ("#ffffff", "#000000"),
+    "merge": ("#f8fafc", "#000000"),
 }
-_EDGE = QColor("#64748b")
-_TEXT = QColor("#0f172a")
+_EDGE = QColor("#000000")
+_TEXT = QColor("#000000")
 
 
 class FlowView(QGraphicsView):
@@ -97,9 +99,9 @@ def _node_path(n: LNode) -> QPainterPath:
     if n.kind == "terminal":
         p.addRoundedRect(QRectF(x, y, w, h), h / 2, h / 2)
     elif n.kind == "process":
-        p.addRoundedRect(QRectF(x, y, w, h), 6, 6)
+        p.addRect(QRectF(x, y, w, h))
     elif n.kind == "predef":
-        p.addRoundedRect(QRectF(x, y, w, h), 6, 6)
+        p.addRect(QRectF(x, y, w, h))
     elif n.kind == "io":
         sk = 14.0
         poly = QPolygonF([
@@ -130,6 +132,34 @@ def _node_path(n: LNode) -> QPainterPath:
         p.addEllipse(QRectF(x, y, w, h))
     p.closeSubpath()
     return p
+
+
+class StatusWindow(QWidget):
+    """Floatable window for displaying status messages."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Статус")
+        self.resize(600, 150)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.Window)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        self.status_label = QLabel("Готово")
+        self.status_label.setWordWrap(True)
+        font = self.status_label.font()
+        font.setPointSize(11)
+        self.status_label.setFont(font)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.status_label)
+        layout.addWidget(scroll)
+
+    def set_text(self, text: str) -> None:
+        self.status_label.setText(text)
+        self.show()
 
 
 def _arrow_head(a: QPointF, b: QPointF) -> QPolygonF:
@@ -203,12 +233,10 @@ def build_scene(graphs: list[LGraph]) -> QGraphicsScene:
             group.addToGroup(item)
             if n.kind == "predef":
                 for dx in (8.0, n.w - 8.0):
-                    line = QGraphicsPathItem(QPainterPath(
-                        QPointF(n.x + x_off + dx, n.y + oy)
-                    ))
-                    line.lineTo(
-                        QPointF(n.x + x_off + dx, n.y + oy + n.h)
-                    )
+                    path = QPainterPath()
+                    path.moveTo(QPointF(n.x + x_off + dx, n.y + oy))
+                    path.lineTo(QPointF(n.x + x_off + dx, n.y + oy + n.h))
+                    line = QGraphicsPathItem(path)
                     line.setPen(QPen(QColor(stroke), 1.6))
                     group.addToGroup(line)
             lh = 16.0
@@ -259,11 +287,10 @@ class MainWindow(QWidget):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 3)
 
-        self.status = QLabel("Готово")
+        self.status = StatusWindow(self)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.addWidget(splitter)
-        layout.addWidget(self.status)
 
         self._build_toolbar()
         self._bind_shortcuts()
@@ -275,6 +302,8 @@ class MainWindow(QWidget):
         act_open.triggered.connect(self.open_file)
         act_save = QAction("Сохранить SVG…", self)
         act_save.triggered.connect(self.save_svg)
+        act_drawio = QAction("Сохранить draw.io…", self)
+        act_drawio.triggered.connect(self.save_drawio)
         act_run = QAction("Сгенерировать", self)
         act_run.triggered.connect(self.generate)
         act_demo = QAction("Пример", self)
@@ -289,6 +318,7 @@ class MainWindow(QWidget):
         act_reset.triggered.connect(self.view.zoom_reset)
         bar.addAction(act_open)
         bar.addAction(act_save)
+        bar.addAction(act_drawio)
         bar.addSeparator()
         bar.addAction(act_run)
         bar.addAction(act_demo)
@@ -316,27 +346,32 @@ class MainWindow(QWidget):
         try:
             self.editor.setPlainText(p.read_text(encoding="utf-8"))
         except OSError as exc:
-            self.status.setText(f"Не удалось прочитать файл: {exc}")
+            self.status.set_text(f"Не удалось прочитать файл: {exc}")
             return
         self.current_path = p
-        self.status.setText(f"Открыт {p.name}")
+        self.status.set_text(f"Открыт {p.name}")
         self.generate()
 
     def save_svg(self) -> None:
-        start = str(self.current_path.with_suffix(".svg")) if self.current_path \
-            else "flowchart.svg"
-        path, _ = QFileDialog.getSaveFileName(
-            self, "Сохранить SVG", start, "SVG (*.svg)"
-        )
+        self._save("Сохранить SVG", ".svg", "SVG (*.svg)", convert_to_svg)
+
+    def save_drawio(self) -> None:
+        self._save("Сохранить draw.io", ".drawio",
+                   "draw.io (*.drawio);;XML (*.xml)", convert_to_drawio)
+
+    def _save(self, title: str, ext: str, filters: str, render) -> None:
+        start = str(self.current_path.with_suffix(ext)) if self.current_path \
+            else "flowchart" + ext
+        path, _ = QFileDialog.getSaveFileName(self, title, start, filters)
         if not path:
             return
         try:
-            svg = convert_to_svg(self.editor.toPlainText())
+            doc = render(self.editor.toPlainText())
         except ParseError as exc:
-            self.status.setText(f"Ошибка парсинга (строка {exc.line}): {exc}")
+            self.status.set_text(f"Ошибка парсинга (строка {exc.line}): {exc}")
             return
-        Path(path).write_text(svg, encoding="utf-8")
-        self.status.setText(f"Сохранено: {path}")
+        Path(path).write_text(doc, encoding="utf-8")
+        self.status.set_text(f"Сохранено: {path}")
 
     def load_example(self) -> None:
         self.editor.setPlainText(EXAMPLE)
@@ -348,14 +383,14 @@ class MainWindow(QWidget):
         try:
             graphs = convert(source)
         except ParseError as exc:
-            self.status.setText(
+            self.status.set_text(
                 f"Ошибка парсинга (строка {exc.line}): {exc}"
             )
             self._highlight_line(exc.line)
             self.view.setScene(QGraphicsScene())
             return
         if not graphs:
-            self.status.setText("В коде не найдено функций")
+            self.status.set_text("В коде не найдено функций")
             self.view.setScene(QGraphicsScene())
             return
         scene = build_scene(graphs)
@@ -364,7 +399,7 @@ class MainWindow(QWidget):
         self.view.zoom_reset()
         self.view.verticalScrollBar().setValue(0)
         self.view.horizontalScrollBar().setValue(0)
-        self.status.setText(
+        self.status.set_text(
             f"Готово: {len(graphs)} функция(и), "
             f"{sum(len(g.nodes) for g in graphs)} блоков. "
             f"Ctrl+колесо — масштаб, кнопка «Вписать» — показать целиком."
