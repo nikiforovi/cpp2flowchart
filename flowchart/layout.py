@@ -215,6 +215,21 @@ def _route(a: tuple[float, float], b: tuple[float, float],
     dst_left, dst_right = dst.x, dst.x + dst.w
     if abs(xs - xd) < 1 and abs(ys - yd) < 1:
         return [a, b]
+
+    def side_join(xv: float, *via: tuple[float, float]
+                  ) -> list[tuple[float, float]]:
+        """a -> via... -> down at x=xv -> sideways into the target column.
+
+        A real block is entered from above, so the line joins the approach
+        line 18 above it. An invisible merge anchor IS the junction: the
+        horizontal stretch must end right on it - otherwise the last 18 px
+        run on top of the main line and the visible join (e.g. right to
+        left, which needs an arrow per GOST) is not the final segment.
+        """
+        if dst.kind == "merge":
+            return [a, *via, (xv, yd), b]
+        return [a, *via, (xv, yd - 18), (xd, yd - 18), b]
+
     if sp == "b" and dp == "t":
         if not down:
             # back edge: down a little, loop around the whole body on the
@@ -236,18 +251,15 @@ def _route(a: tuple[float, float], b: tuple[float, float],
         if abs(xs - xd) < 1:
             # long exit (e.g. an early `return`): detour around every block
             # stacked in between and rejoin above the target
-            join_y = yd - 18
-            return [a, (xs, ys + 14), (xc, ys + 14), (xc, join_y),
-                    (xd, join_y), b]
+            return side_join(xc, (xs, ys + 14), (xc, ys + 14))
         # turn as close to the target as possible: the final vertical
         # stretch at xd is where this edge would run on top of whatever
         # other line already occupies that column (e.g. the "да" branch
         # dropping straight into the same merge), so keep it short rather
         # than using the midpoint (which made the shared stretch huge)
-        turn_y = yd - 18
-        if turn_y > ys + 10:
-            return [a, (xs, turn_y), (xd, turn_y), b]
-        return [a, (xc, ys), (xc, yd - 18), (xd, yd - 18), b]
+        if yd - 18 > ys + 10:
+            return side_join(xs)
+        return side_join(xc, (xc, ys))
     if sp == "r" and dp == "t":
         if yd > ys + 8 and xd > xs + 5:
             # target centre is right of the exit point: step right, then down
@@ -256,8 +268,7 @@ def _route(a: tuple[float, float], b: tuple[float, float],
         # block and everything the branch has to clear, then down
         if xc is None:
             xc = _push_right(a, b, src, dst, obstacles) + lane * LANE_GAP
-        join_y = yd - 18
-        return [a, (xc, ys), (xc, join_y), (xd, join_y), b]
+        return side_join(xc, (xc, ys))
     if sp == "b" and dp == "l":
         # counter-loop back edge: down, around everything on the LEFT (wide
         # body blocks may stick out to the right of the hexagon), up, and
@@ -614,6 +625,29 @@ def layout(graph: Graph) -> LGraph:
                 stack.append(dst)
         return frozenset(out)
 
+    def col(nid: int) -> int:
+        return graph.nodes[nid].col
+
+    # The "нет" branch starts beside the "да" one, so a line coming back
+    # from the "нет" columns into the "да" column must land below the
+    # whole "да" subtree. A merge collecting both sides orders that by
+    # itself; when "да" ends with break/continue/return there is none.
+    rejoin: dict[int, list[frozenset[int]]] = {}
+    for e in vis_edges:
+        if not (e.down and e.src_port == "r") or e.src in skip \
+                or e.dst in skip:
+            continue
+        dcol = col(e.dst)
+        region = {e.dst} | fwd(e.dst)
+        yes = frozenset(below(e.src) - region)
+        if not yes:
+            continue
+        for e2 in vis_edges:
+            if (e2.down and e2.src in region and e2.dst != graph.end
+                    and e2.dst not in skip
+                    and col(e2.src) >= dcol > col(e2.dst)):
+                rejoin.setdefault(e2.dst, []).append(yes)
+
     y: dict[int, float] = {graph.start: 0.0}
     for _ in range(len(graph.nodes) + 2):
         changed = False
@@ -625,12 +659,14 @@ def layout(graph: Graph) -> LGraph:
                 # is usually reachable from src through the "yes" subtree,
                 # and pulling its successors into the base ratchets the
                 # target's own y upward on every relaxation pass.
-                sub = set(below(e.src))
-                if e.compact:
-                    # the "да" side ends at its own terminal: only blocks
-                    # of it that reach into the branch's columns matter
-                    dcol = graph.nodes[e.dst].col
-                    sub = {g for g in sub if graph.nodes[g].col >= dcol}
+                # Only blocks of the "да" subtree that reach into the
+                # branch's columns (e.g. a nested if/else) can collide with
+                # it; a plain "да" column must not push the "нет" branch
+                # down - both branches start side by side below the
+                # condition. Loop exits target the same column, so for
+                # them the whole body still counts.
+                dcol = graph.nodes[e.dst].col
+                sub = {g for g in below(e.src) if graph.nodes[g].col >= dcol}
                 group = ({e.src} | sub) - set(fwd(e.dst)) \
                     - {e.dst} or {e.src}
                 if not all(g in y for g in group):
@@ -639,6 +675,11 @@ def layout(graph: Graph) -> LGraph:
                 cand = base + VGAP
             else:
                 cand = y[e.src] + sizes[e.src][1] + VGAP
+            if col(e.src) > col(e.dst):
+                for yes in rejoin.get(e.dst, ()):
+                    if all(g in y for g in yes):
+                        cand = max(cand, max(y[g] + sizes[g][1]
+                                             for g in yes) + VGAP)
             if e.dst not in y or y[e.dst] < cand - 1e-6:
                 y[e.dst] = cand
                 changed = True

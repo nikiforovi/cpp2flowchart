@@ -299,6 +299,9 @@ class Converter:
                             "pointer_declarator", "reference_declarator"):
                 # plain declaration without initializer: int n;
                 out.append(N.VarDecl(type_text, self.text(d), None, line))
+        if len(out) > 1:
+            # int n, m; -> one block, as written in the code
+            return [N.DeclGroup(out, line)]
         return out
 
     def expression_statement(self, node: Node) -> list:
@@ -404,8 +407,11 @@ class Converter:
         line = node.start_point[0] + 1
         if base == "cin":
             return N.Input([i for i in items if i], line)
-        filtered = [i for i in items if i and i not in ("endl", "std::endl")]
-        return N.Output(filtered, line)
+        # endl is a line break, not nothing: `cout << endl;` must not turn
+        # into an empty output block
+        items = ['"\\n"' if i in ("endl", "std::endl") else i
+                 for i in items if i]
+        return N.Output(items, line)
 
     def _flatten_stream(self, node: Node, op: str | None) -> list[str]:
         if node.type == "binary_expression":

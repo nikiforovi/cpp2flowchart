@@ -153,19 +153,40 @@ class _Builder:
         self.connect(tails, nid)
         return [Tail(nid, "b")]
 
-    def _VarDecl(self, s: N.VarDecl, tails: list[Tail]) -> list[Tail]:
+    def _decl(self, s: N.VarDecl) -> tuple[str, str]:
+        """(text, block kind) of one declarator."""
         # GOST: no data types on the chart; keep * and & markers
         text = s.name + (f" = {s.init}" if s.init else "")
         # Check if the initializer is a call to a user-defined function
         kind = "process"
         if s.init:
-            import re
             match = re.match(r"(\w+)\s*\(", s.init.strip())
             if match:
                 func_name = match.group(1)
                 if func_name in self.user_funcs:
                     kind = "predef"
-        return self._simple(text, kind, tails)
+        return text, kind
+
+    def _VarDecl(self, s: N.VarDecl, tails: list[Tail]) -> list[Tail]:
+        return self._simple(*self._decl(s), tails)
+
+    def _DeclGroup(self, s: N.DeclGroup, tails: list[Tail]) -> list[Tail]:
+        # `int a, b = 1;` -> one block "a, b = 1". A declarator initialised
+        # by a user function call keeps its own predefined-process block
+        # (in source order), the plain ones around it are grouped.
+        run: list[str] = []
+        for d in s.decls:
+            text, kind = self._decl(d)
+            if kind == "process":
+                run.append(text)
+                continue
+            if run:
+                tails = self._simple(", ".join(run), "process", tails)
+                run = []
+            tails = self._simple(text, kind, tails)
+        if run:
+            tails = self._simple(", ".join(run), "process", tails)
+        return tails
 
     def _Assign(self, s: N.Assign, tails: list[Tail]) -> list[Tail]:
         # Check if the right-hand side is a call to a user-defined function

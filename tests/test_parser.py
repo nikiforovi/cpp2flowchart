@@ -22,7 +22,10 @@ def test_simple_function():
 
 def test_declaration_multi():
     fs = funcs("void f() { int a, b = 2; }")
-    decls = fs[0].body
+    assert len(fs[0].body) == 1
+    group = fs[0].body[0]
+    assert isinstance(group, N.DeclGroup)
+    decls = group.decls
     assert len(decls) == 2
     assert decls[0].name == "a" and decls[0].init is None
     assert decls[1].name == "b" and decls[1].init == "2"
@@ -37,16 +40,18 @@ def test_assignment_and_call():
 
 def test_cin_cout():
     fs = funcs('void f() { int a, b; cin >> a >> b; cout << a << b; }')
-    inp, out = fs[0].body[2], fs[0].body[3]
+    inp, out = fs[0].body[1], fs[0].body[2]
     assert isinstance(inp, N.Input) and inp.items == ["a", "b"]
     assert isinstance(out, N.Output) and out.items == ["a", "b"]
 
 
-def test_cout_literals_filtered():
-    fs = funcs('void f() { cout << "x=" << 42 << endl; }')
-    out = fs[0].body[0]
+def test_cout_endl_becomes_newline():
+    fs = funcs('void f() { cout << "x=" << 42 << endl; cout << std::endl; }')
+    out, nl = fs[0].body
     assert isinstance(out, N.Output)
-    assert out.items == ['"x="', "42"]
+    assert out.items == ['"x="', "42", '"\\n"']
+    # a bare endl still prints something - no empty output block
+    assert nl.items == ['"\\n"']
 
 
 def test_printf_input():

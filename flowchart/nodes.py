@@ -19,6 +19,16 @@ class VarDecl(Node):
 
 
 @dataclass
+class DeclGroup(Node):
+    """One declaration statement with several declarators: `int a, b = 1;`.
+
+    Drawn as a single block, like it is written in the code.
+    """
+    decls: list[VarDecl] = field(default_factory=list)
+    line: int = 0
+
+
+@dataclass
 class Assign(Node):
     target: str
     op: str  # = += -= *= /= %= etc.

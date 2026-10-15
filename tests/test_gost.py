@@ -239,6 +239,27 @@ class TestTexts:
         assert not any(t.startswith("int ") or t.startswith("double ")
                        for t in texts)
 
+    def test_multi_declaration_is_one_block(self):
+        g = graph_of("void f() { int a, *p, b = 2; a = b; }")
+        texts = [n.text for n in g.nodes if n.kind == "process"]
+        assert texts == ["a, *p, b = 2", "a = b"]
+
+    def test_multi_declaration_keeps_predef_call_apart(self):
+        src = """
+        int g(int x) { return x; }
+        void f() { int a = 1, b = g(a), c; }
+        """
+        g = graph_of(src, "f")
+        blocks = [(n.kind, n.text) for n in g.nodes
+                  if n.kind in ("process", "predef")]
+        assert blocks == [("process", "a = 1"), ("predef", "b = g(a)"),
+                          ("process", "c")]
+
+    def test_endl_kept_as_newline(self):
+        g = graph_of('void f() { cout << "x" << endl; cout << endl; }')
+        texts = [n.text for n in g.nodes if n.kind == "io"]
+        assert texts == ['Вывод: "x" "\\n"', 'Вывод: "\\n"']
+
     def test_main_terminators(self):
         g = graph_of("int main() { a(); }", "main")
         texts = [n.text for n in g.nodes]
@@ -497,6 +518,26 @@ class TestRouting:
                      and e.label == "нет")
         assert min(x for x, _ in back.points) < dec.x
         assert max(x for x, _ in exit_.points) > dec.x + dec.w
+
+    @pytest.mark.parametrize("src", [
+        "void f() { if (c) a(); else b(); d(); }",
+        "void f() { if (c) a(); d(); }",
+        "void f() { if (a) { if (b) x(); else y(); } else z(); w(); }",
+    ])
+    def test_right_branch_joins_main_line_with_arrow(self, src):
+        # GOST: the "нет" branch comes back right-to-left into the main
+        # line - it must end on the junction itself (no stub running on
+        # top of the main line) and therefore get an arrow head
+        from flowchart.layout import edge_arrow
+        g = layout_of(src)
+        kinds = {n.id: n.kind for n in g.nodes}
+        side = [e for e in g.edges if kinds[e.dst] == "merge"
+                and max(x for x, _ in e.points) > e.points[-1][0] + 1]
+        assert side
+        for e in side:
+            (x0, y0), (x1, y1) = e.points[-2:]
+            assert abs(y0 - y1) < 0.5 and x1 < x0
+            assert edge_arrow(e.points, e.arrow)
 
 
 class TestGeometry:
