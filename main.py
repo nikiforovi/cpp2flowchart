@@ -36,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     src_path = Path(args.input)
     try:
         source = src_path.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         print(f"не удалось прочитать файл: {exc}", file=sys.stderr)
         return 1
 
@@ -47,7 +47,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     out_path = Path(args.output) if args.output else src_path.with_suffix(ext)
-    out_path.write_text(doc, encoding="utf-8")
+    try:
+        out_path.write_text(doc, encoding="utf-8")
+    except OSError as exc:
+        print(f"не удалось сохранить файл: {exc}", file=sys.stderr)
+        return 1
     print(f"схема сохранена: {out_path}")
     return 0
 

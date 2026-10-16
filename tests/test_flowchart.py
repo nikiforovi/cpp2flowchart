@@ -49,17 +49,20 @@ class TestGraph:
 
     def test_break_exits_loop(self):
         g = graph_of("void f() { while (c) { if (d) break; a(); } b(); }")
-        brk = next(n for n in g.nodes if n.text == "break")
-        # break flows to the first statement after the loop
-        targets = {e.dst for e in g.edges if e.src == brk.id}
-        assert len(targets) == 1
-        dst = next(n for n in g.nodes if n.id == next(iter(targets)))
+        # GOST has no break block: the "да" line of the condition that
+        # guards the break runs straight to the statement after the loop
+        assert "break" not in node_texts(g)
+        brk = next(n for n in g.nodes if n.text == "d")
+        jumps = [e for e in g.edges if e.src == brk.id and e.jump]
+        assert len(jumps) == 1 and jumps[0].label == "да"
+        dst = next(n for n in g.nodes if n.id == jumps[0].dst)
         assert dst.text == "b()"
 
     def test_continue_returns_to_condition(self):
         g = graph_of("void f() { while (c) { if (d) continue; a(); } }")
-        cont = next(n for n in g.nodes if n.text == "continue")
-        dec = next(n for n in g.nodes if n.kind == "decision")
+        assert "continue" not in node_texts(g)
+        cont = next(n for n in g.nodes if n.text == "d")
+        dec = next(n for n in g.nodes if n.kind == "decision" and n.text == "c")
         # continue may first join a shared junction with the other
         # loop-back tail (so the two don't draw overlapping back edges),
         # but it must still reach the condition eventually
@@ -81,8 +84,12 @@ class TestGraph:
         """
         g = graph_of(src)
         by_text = {n.text: n.col for n in g.nodes}
-        assert by_text["a()"] == 1
-        assert by_text["b()"] == 2
+        # symmetric fan of the two visible cases + rightmost bypass:
+        # offsets [-1, 0, +1] around the decision diamond
+        sw = next(n for n in g.nodes if n.kind == "decision")
+        assert by_text["a()"] == sw.col - 1
+        assert by_text["b()"] == sw.col
+        assert by_text["a()"] + by_text["b()"] == 2 * sw.col - 1
 
     def test_return_goes_to_return_terminator(self):
         g = graph_of("void f() { g(); return 1; }")
@@ -166,17 +173,17 @@ class TestLayout:
     def test_end_is_lowest(self):
         g = convert(DEMO)[0]
         end = next(n for n in g.nodes if n.id == g.end)
-        # exit connectors (break/...) drain straight to the end marker and
-        # are allowed to sit beside the tail of the last case column
-        exits = {
-            n.id for n in g.nodes
-            if n.kind == "connector" and n.lines == ["break"]
-        }
         bottom = max(
-            n.y + n.h for n in g.nodes
-            if n.id not in (g.start, g.end) and n.id not in exits
+            n.y + n.h for n in g.nodes if n.id not in (g.start, g.end)
         )
         assert end.y >= bottom
+
+    def test_no_jump_blocks_anywhere(self):
+        # GOST 19.701-90 knows no break/continue block
+        for g in convert(DEMO):
+            assert not any(n.kind == "connector" for n in g.nodes)
+            assert not any(set(n.lines) & {"break", "continue"}
+                           for n in g.nodes)
 
     def test_edges_have_points(self):
         for g in convert(DEMO):

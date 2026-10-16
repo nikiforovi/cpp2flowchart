@@ -164,3 +164,12 @@ def test_syntax_error_reports_line():
 def test_comments_ignored():
     fs = funcs("int main() { // comment\n /* block */ return 0; }")
     assert len(fs[0].body) == 1
+
+
+@pytest.mark.parametrize("value", ["1 + 2", "-1", "limit()"])
+def test_case_expression_is_a_label_not_a_statement(value):
+    switch = funcs(f"void f() {{ switch (x) {{ case {value}: g(); break; }} }}")[0].body[0]
+    labels, body = switch.cases[0]
+    assert labels == [value]
+    assert [type(stmt) for stmt in body] == [N.Call, N.Break]
+    assert body[0].name == "g"

@@ -155,11 +155,14 @@ class TestLoops:
         g = graph_of(
             "void f() { while (c) { if (d) break; if (e) continue; a(); } b(); }"
         )
-        brk = next(n for n in g.nodes if n.text == "break")
-        cont = next(n for n in g.nodes if n.text == "continue")
-        dec = next(n for n in g.nodes if n.kind == "decision")
+        # no break/continue blocks: the guarding conditions jump directly
+        assert not {"break", "continue"} & {n.text for n in g.nodes}
+        brk = next(n for n in g.nodes if n.text == "d")
+        cont = next(n for n in g.nodes if n.text == "e")
+        dec = next(n for n in g.nodes if n.text == "c")
         b_node = next(n for n in g.nodes if n.text == "b()")
-        assert any(e.dst == b_node.id for e in g.edges if e.src == brk.id)
+        assert any(e.dst == b_node.id and e.label == "да" and e.jump
+                   for e in g.edges if e.src == brk.id)
         # continue may first join a shared junction with the other
         # loop-back tail instead of a direct edge into the condition
         seen = {cont.id}
@@ -182,9 +185,10 @@ class TestLoops:
         }
         """
         g = graph_of(src)
-        brk = next(n for n in g.nodes if n.text == "break")
+        brk = next(n for n in g.nodes if n.text == "c")
         d_node = next(n for n in g.nodes if n.text == "d()")
-        assert any(e.dst == d_node.id for e in g.edges if e.src == brk.id)
+        assert any(e.dst == d_node.id and e.jump
+                   for e in g.edges if e.src == brk.id)
 
     def test_empty_loop_body(self):
         g = graph_of("void f() { while (c) { } a(); }")
@@ -194,6 +198,13 @@ class TestLoops:
 
 
 # ------------------------------------------------------------------ 4. switch
+def _switch_bus(g) -> int:
+    """The invisible junction the case branches fan out from."""
+    sw = next(n for n in g.nodes if n.kind == "decision")
+    return next(e.dst for e in g.edges
+                if e.src == sw.id and g.nodes[e.dst].kind == "merge")
+
+
 class TestSwitch:
     def test_switch_default_and_fallthrough(self):
         src = """
@@ -216,8 +227,73 @@ class TestSwitch:
         src = "void f(int x) { switch (x) { case 1: a(); break; } b(); }"
         g = graph_of(src)
         b_node = next(n for n in g.nodes if n.text == "b()")
+        bus = _switch_bus(g)
+        # bypass is the rightmost branch with an empty label
+        outs = [e for e in g.edges if e.src == bus and e.dst == b_node.id]
+        assert len(outs) == 1 and outs[0].label == ""
+        assert outs[0].src_port == "r"
+        right = max(e.dst for e in g.edges if e.src == bus
+                    for _ in [g.nodes[e.dst]]
+                    if g.nodes[e.dst].kind != "merge" or True)
+        cols = {e.dst: g.nodes[e.dst].col for e in g.edges if e.src == bus}
+        assert cols[b_node.id] == max(
+            g.nodes[e.dst].col for e in g.edges if e.src == bus)
+
+    def test_switch_bypass_is_rightmost(self):
+        src = ("void f(int x) { switch (x) { case 1: a(); break; "
+               "case 2: b(); break; } c(); }")
+        g = graph_of(src)
+        bus = _switch_bus(g)
+        by_dst = {g.nodes[e.dst].text: (g.nodes[e.dst].col, e.label)
+                  for e in g.edges if e.src == bus}
+        # bypass "c()" sits right of every case column, label empty
+        assert by_dst["c()"][0] > by_dst["a()"][0]
+        assert by_dst["c()"][0] > by_dst["b()"][0]
+        assert by_dst["c()"][1] == ""
+
+    def test_one_line_leaves_downwards_then_fans_out(self):
+        src = """
+        void f(int x) {
+            switch (x) {
+                case 1: a(); break;
+                case 2: b(); break;
+                default: d();
+            }
+        }
+        """
+        g = graph_of(src)
         sw = next(n for n in g.nodes if n.kind == "decision")
-        assert any(e.src == sw.id and e.dst == b_node.id for e in g.edges)
+        bus = _switch_bus(g)
+        # exactly one line out of the selection block, and it goes down
+        outs = [e for e in g.edges if e.src == sw.id]
+        assert len(outs) == 1
+        assert (outs[0].dst, outs[0].src_port, outs[0].dst_port) == \
+            (bus, "b", "t")
+        # every case branch starts at that one junction point
+        starts = {n.text: [e.src for e in g.edges if e.dst == n.id]
+                  for n in g.nodes if n.text in ("a()", "b()", "d()")}
+        assert starts == {"a()": [bus], "b()": [bus], "d()": [bus]}
+
+    def test_case_labels_are_bare_codes(self):
+        src = """
+        void f(int x) {
+            switch (x) {
+                case 1: a(); break;
+                case 2:
+                case 3: b(); break;
+                default: d();
+            }
+        }
+        """
+        g = graph_of(src)
+        bus = _switch_bus(g)
+        labels = {e.label for e in g.edges if e.src == bus}
+        assert labels == {"1", "2", "3", ""}  # default line stays unlabelled
+        assert not any("=" in lbl for lbl in labels)
+
+    def test_switch_bus_is_invisible(self):
+        g = graph_of("void f(int x) { switch (x) { case 1: a(); break; } }")
+        assert g.nodes[_switch_bus(g)].kind == "merge"
 
 
 # ------------------------------------------------------------------ 5. texts

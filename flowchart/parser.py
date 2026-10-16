@@ -121,7 +121,7 @@ class Converter:
                         labels = None if val_n is None else [self.text(val_n)]
                         stmts: list = []
                         for sub in child.named_children:
-                            if sub is val_n:
+                            if sub == val_n:
                                 continue
                             self._append(stmts, self.statement(sub))
                         cases.append((labels, stmts))

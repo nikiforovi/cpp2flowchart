@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from . import nodes as N
 
@@ -35,6 +35,9 @@ class GEdge:
     # it may start right beside the decision instead of below the whole
     # "да" subtree (the two branches never rejoin)
     compact: bool = False
+    # unconditional jump (break/continue): the line leaves the construct it
+    # starts in, so it must not order that construct's blocks vertically
+    jump: bool = False
 
 
 @dataclass
@@ -47,6 +50,7 @@ class Tail:
     branch: int = 0
     arrow: str = "auto"
     compact: bool = False
+    jump: bool = False
 
 
 def _terminates(body) -> bool:
@@ -104,24 +108,29 @@ class _Builder:
     def edge(self, src: int, dst: int, sp: str, dp: str, *,
              label: str = "", branch: int = 0, down: bool | None = None,
              xmode: str = "down", arrow: str = "auto",
-             compact: bool = False) -> None:
+             compact: bool = False, jump: bool = False) -> None:
         if down is None:
-            down = dp == "t" and sp in ("b", "r")
+            down = dp == "t" and sp in ("b", "r", "l")
         self.edges.append(
             GEdge(src, dst, sp, dp, label, branch, down, xmode, arrow,
-                  compact)
+                  compact, jump)
         )
 
     def connect(self, tails: list[Tail], dst: int, dst_port: str = "t") -> None:
         for t in tails:
             self.edge(t.node, dst, t.port, dst_port,
                       label=t.label, branch=t.branch, xmode=t.xmode,
-                      arrow=t.arrow, compact=t.compact)
+                      arrow=t.arrow, compact=t.compact, jump=t.jump)
 
     # ---- statements -------------------------------------------------------
     def wire(self, stmts: list, tails: list[Tail]) -> tuple[list[Tail], int | None]:
-        n0 = len(self.nodes)
+        e0 = len(self.edges)
+        entry_ports = {(t.node, t.port) for t in tails if t.kind == "n"}
         for i, st in enumerate(stmts):
+            active = [t for t in tails if t.kind == "n"]
+            if not active:
+                break  # remaining statements cannot be reached
+            passthru = [t for t in tails if t.kind != "n"]
             rest = stmts[i + 1:]
             if (isinstance(st, N.If) and st.else_body is None and rest
                     and all(_terminates(b) for _, b in st.branches)):
@@ -130,13 +139,14 @@ class _Builder:
                 st = N.If(branches=st.branches, else_body=list(rest),
                           line=st.line)
                 rest = []
-            active = [t for t in tails if t.kind == "n"]
-            passthru = [t for t in tails if t.kind != "n"]
             # break/continue tails pass through untouched to the enclosing loop
             tails = self.apply(st, active) + passthru
             if not rest:
                 break
-        first = self.nodes[n0].id if len(self.nodes) > n0 else None
+        # Allocation order is not execution order: an if allocates its merge
+        # before its condition. Follow the incoming flow to find the entry.
+        first = next((e.dst for e in self.edges[e0:]
+                      if (e.src, e.src_port) in entry_ports), None)
         return tails, first
 
     def apply(self, stmt, tails: list[Tail]) -> list[Tail]:
@@ -243,15 +253,19 @@ class _Builder:
         self.return_edges += 1
         return []
 
+    def _Jump(self, kind: str, tails: list[Tail]) -> list[Tail]:
+        """GOST 19.701-90 has no block for break/continue: the flow line
+        itself runs from here straight to wherever the jump leads, so the
+        incoming tails are only re-tagged and handed to the enclosing loop
+        or switch."""
+        return [replace(t, kind=kind, xmode="right", jump=True)
+                for t in tails]
+
     def _Break(self, s: N.Break, tails: list[Tail]) -> list[Tail]:
-        nid = self.add("connector", "break")
-        self.connect(tails, nid)
-        return [Tail(nid, "b", kind="b", xmode="right")]
+        return self._Jump("b", tails)
 
     def _Continue(self, s: N.Continue, tails: list[Tail]) -> list[Tail]:
-        nid = self.add("connector", "continue")
-        self.connect(tails, nid)
-        return [Tail(nid, "b", kind="c", xmode="right")]
+        return self._Jump("c", tails)
 
     # ---- control flow ------------------------------------------------------
     def _If(self, s: N.If, tails: list[Tail]) -> list[Tail]:
@@ -362,7 +376,7 @@ class _Builder:
                     continue
                 back.append(t)
             else:  # break leaves the loop
-                out.append(Tail(t.node, t.port, kind="n", xmode=t.xmode))
+                out.append(replace(t, kind="n"))
         if back:
             # back edge joins the line above the condition (arrow!)
             self.edge(self._loop_back_junction(back), dec, "b", "t",
@@ -371,18 +385,19 @@ class _Builder:
 
     def _DoWhile(self, s: N.DoWhile, tails: list[Tail]) -> list[Tail]:
         body_tails, first = self.wire(s.body, list(tails))
+        repeat = [t for t in body_tails if t.kind in ("n", "c")]
+        out = [replace(t, kind="n")
+               for t in body_tails if t.kind == "b"]
+        if not repeat:
+            # Every path returned or broke out; the condition is unreachable.
+            return out
         dec = self.add("decision", s.cond or "true")
-        out: list[Tail] = [Tail(dec, "r", label="нет")]
-        for t in body_tails:
-            if t.kind in ("n", "c"):
-                self.edge(t.node, dec, t.port, "t")
-            else:
-                out.append(Tail(t.node, t.port, kind="n", xmode=t.xmode))
-        if first is not None:
-            # "да" goes back and joins the line above the body (arrow!)
-            self.edge(dec, first, "b", "t", label="да",
-                      down=False, arrow="always")
-        return out
+        self.connect(repeat, dec)
+        # An empty body repeats the condition itself. Otherwise repeat from
+        # the actual entry, not from the first allocated (possibly merge) node.
+        self.edge(dec, first if first is not None else dec, "b", "t",
+                  label="да", down=False, arrow="always")
+        return [Tail(dec, "r", label="нет")] + out
 
     def _For(self, s: N.For, tails: list[Tail]) -> list[Tail]:
         text = for_counter_text(s)
@@ -403,7 +418,7 @@ class _Builder:
                     continue  # already handled (empty-ish body)
                 back.append(t)
             else:  # break
-                out.append(Tail(t.node, t.port, kind="n", xmode=t.xmode))
+                out.append(replace(t, kind="n"))
         if back:
             # back edge enters the left edge of the counter block
             self.edge(self._loop_back_junction(back), hexagon, "b", "l",
@@ -413,31 +428,69 @@ class _Builder:
                       down=False, arrow="always")
         return out
 
+    def _sym_offsets(self, m: int) -> list[int]:
+        """Column offsets for `m` fan lines, symmetric around zero.
+
+        Odd counts include the centre (straight line down); even counts
+        leave a gap in the middle so the bus stays centred.
+        """
+        if m <= 0:
+            return []
+        if m % 2 == 1:
+            h = m // 2
+            return list(range(-h, h + 1))
+        h = m // 2
+        return list(range(-h, 0)) + list(range(1, h + 1))
+
     def _Switch(self, s: N.Switch, tails: list[Tail]) -> list[Tail]:
         base = self.cur_col
         sw = self.add("decision", s.expr or "?")
         self.connect(tails, sw)
+        # GOST: a single line leaves the selection block downwards and only
+        # then fans out into the case branches, each marked with its code
+        # (the code alone - no "=" prefix). The fan is symmetric around the
+        # decision diamond: branch columns spread to both sides of `base`
+        # (odd counts keep the centre column, even counts leave a gap so
+        # the bus stays centred).
+        bus_node = self.add("merge", "")
+        self.edge(sw, bus_node, "b", "t")
         out: list[Tail] = []
+        has_default = any(labels is None for labels, _ in s.cases)
+        # the whole fan (cases + the no-default bypass line) is symmetric
+        # around the diamond; the bypass is the rightmost branch
+        offs = self._sym_offsets(len(s.cases) + (0 if has_default else 1))
+        left_need = -min(offs) if offs else 0
+        if left_need:
+            # free columns left of `base` without moving the switch itself:
+            # shift every existing node at/after `base` right, so the fan
+            # can spread left while the entry line stays vertical
+            for n in self.nodes:
+                if n.col >= base:
+                    n.col += left_need
+            self.cur_col += left_need
+            base += left_need
+        self.nodes[bus_node].col = base
+        self.nodes[sw].col = base
         cols: list[tuple[int | None, list[Tail]]] = []
         for i, (labels, body) in enumerate(s.cases):
-            self.cur_col = base + 1 + i
-            if labels is None:
-                lbl = ""
-            else:
-                lbl = "=" + "|".join(labels)
-            entry = Tail(sw, "r", label=lbl)
+            self.cur_col = base + offs[i]
+            lbl = "" if labels is None else "|".join(labels)
+            port = "b" if offs[i] == 0 else ("l" if offs[i] < 0 else "r")
+            entry = Tail(bus_node, port, label=lbl)
             bt, first = self.wire(body, [entry])
             for t in bt:
                 if t.kind == "b":          # break exits the switch
-                    out.append(Tail(t.node, t.port, kind="n",
-                                    arrow="always"))
+                    out.append(replace(t, kind="n", arrow="always"))
                 elif t.kind == "c":        # continue passes through
                     out.append(t)
             normals = [t for t in bt if t.kind == "n"]
             cols.append((first, normals))
-        if not any(labels is None for labels, _ in s.cases):
-            # no default: an unmatched value bypasses all cases
-            out.append(Tail(sw, "r", label="нет"))
+        if not has_default:
+            # no default: an unmatched value bypasses all cases along the
+            # rightmost branch (empty label, no "=" prefix)
+            bp = offs[len(s.cases)]
+            bport = "b" if bp == 0 else "r"
+            out.append(Tail(bus_node, bport, label=""))
         self.cur_col = base
         # fallthrough: normal exits of a non-last case flow into the next
         n = len(cols)
@@ -458,8 +511,6 @@ class _Builder:
                               label=t.label, down=False)
             else:
                 out.extend(normals)
-        if not out and not any(c[1] for c in cols):
-            out.append(Tail(sw, "r"))
         return out
 
 
@@ -569,9 +620,7 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
             b.connect(entry, io)
             entry = [Tail(io, "b")]
     tails, _ = b.wire(func.body, entry)
-    for t in tails:
-        b.edge(t.node, b.end, t.port, "t", label=t.label,
-               branch=t.branch, xmode=t.xmode, compact=t.compact)
+    b.connect(tails, b.end)
     # hide unused terminators (GOST: no empty end blocks)
     if b.return_edges == 0:
         b.nodes[b.ret].kind = "skip"

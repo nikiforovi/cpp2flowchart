@@ -18,13 +18,12 @@ _WRAP = {
     "io": 28,
     "decision": 22,
     "hexagon": 26,
-    "connector": 12,
     "merge": 12,
 }
 
 _PAD = {"terminal": (34, 18), "process": (28, 22),
         "io": (30, 22), "decision": (44, 34), "hexagon": (56, 24),
-        "connector": (24, 10), "merge": (10, 10)}
+        "merge": (10, 10)}
 
 # merge anchors are invisible junction points: zero size, so the joining
 # lines and the outgoing line meet in one point (no gap in the line)
@@ -260,6 +259,15 @@ def _route(a: tuple[float, float], b: tuple[float, float],
         if yd - 18 > ys + 10:
             return side_join(xs)
         return side_join(xc, (xc, ys))
+    if sp == "l" and dp == "t":
+        if yd > ys + 8 and xd < xs - 5:
+            # mirror of the "r"->"t" fan: step left, then down
+            return [a, (xd, ys), b]
+        # target in the same/right column: loop left around the source
+        # block and everything the branch has to clear, then down
+        if xc is None:
+            xc = _push_left(a, b, src, dst, obstacles) - lane * LANE_GAP
+        return side_join(xc, (xc, ys))
     if sp == "r" and dp == "t":
         if yd > ys + 8 and xd > xs + 5:
             # target centre is right of the exit point: step right, then down
@@ -317,6 +325,10 @@ def _corridor_sides(e, a, b, src: LNode, dst: LNode,
         if yd - 18 > ys + 10:
             return ()  # plain Z-route
         return ("r",)
+    if sp == "l" and dp == "t":
+        if yd > ys + 8 and xd < xs - 5:
+            return ()  # plain L-route (mirror of "r"->"t")
+        return ("l",)
     if sp == "r" and dp == "t":
         if yd > ys + 8 and xd > xs + 5:
             return ()  # plain L-route
@@ -573,12 +585,13 @@ def layout(graph: Graph) -> LGraph:
     # ---- 2. y positions via longest-path relaxation ---------------------
     # Right-side ("no") branches must start below the whole "yes" subtree,
     # not just below the decision node itself.
-    out_edges: dict[int, list[tuple[str, int]]] = {}
+    out_edges: dict[int, list[tuple[str, int, bool]]] = {}
     for e in vis_edges:
         if e.down and e.dst_port == "t":
             if e.src in skip or e.dst in skip:
                 continue
-            out_edges.setdefault(e.src, []).append((e.src_port, e.dst))
+            out_edges.setdefault(e.src, []).append(
+                (e.src_port, e.dst, e.jump))
 
     from functools import lru_cache
 
@@ -589,7 +602,7 @@ def layout(graph: Graph) -> LGraph:
         stack = [nid]
         while stack:
             u = stack.pop()
-            for sp, dst in out_edges.get(u, ()):
+            for sp, dst, jump in out_edges.get(u, ()):
                 if dst == graph.end or dst in out or dst == nid:
                     continue
                 out.add(dst)
@@ -604,21 +617,23 @@ def layout(graph: Graph) -> LGraph:
         successors - i.e. the straight "yes" flow plus anything nested
         inside it. Right-side exits of nid are the branch being
         positioned; right-side exits deeper inside (nested branches)
-        still count since they rejoin the local flow. Connector nodes
-        (break/continue) terminate the walk: their outgoing edges leave
-        the current construct. Stops at the graph end.
+        still count since they rejoin the local flow. Unconditional jumps
+        (break/continue) are not followed: such a line leaves the current
+        construct, so whatever it reaches is not part of this subtree.
+        Stops at the graph end.
         """
         out: set[int] = set()
-        stack = [dst for sp, dst in out_edges.get(nid, ()) if sp == "b"]
+        stack = [dst for sp, dst, jump in out_edges.get(nid, ())
+                 if sp == "b" and not jump]
         while stack:
             u = stack.pop()
             if u == graph.end or u in out or u == nid:
                 continue
             out.add(u)
-            if graph.nodes[u].kind == "connector":
-                continue  # break/continue leave this construct
-            for sp, dst in out_edges.get(u, ()):
-                if u == nid and sp == "r":
+            for sp, dst, jump in out_edges.get(u, ()):
+                if jump:
+                    continue  # break/continue leave this construct
+                if u == nid and sp in ("r", "l"):
                     continue  # that is the branch itself
                 if dst == graph.end or dst in out or dst == nid:
                     continue
@@ -634,7 +649,7 @@ def layout(graph: Graph) -> LGraph:
     # itself; when "да" ends with break/continue/return there is none.
     rejoin: dict[int, list[frozenset[int]]] = {}
     for e in vis_edges:
-        if not (e.down and e.src_port == "r") or e.src in skip \
+        if not (e.down and e.src_port in ("r", "l")) or e.src in skip \
                 or e.dst in skip:
             continue
         dcol = col(e.dst)
@@ -654,7 +669,7 @@ def layout(graph: Graph) -> LGraph:
         for e in vis_edges:
             if not e.down or e.src not in y or e.dst == graph.end:
                 continue
-            if e.src_port == "r":
+            if e.src_port in ("r", "l"):
                 # Exclude the branch target's own continuation: the target
                 # is usually reachable from src through the "yes" subtree,
                 # and pulling its successors into the base ratchets the
@@ -666,7 +681,12 @@ def layout(graph: Graph) -> LGraph:
                 # condition. Loop exits target the same column, so for
                 # them the whole body still counts.
                 dcol = graph.nodes[e.dst].col
-                sub = {g for g in below(e.src) if graph.nodes[g].col >= dcol}
+                if e.src_port == "l":
+                    sub = {g for g in below(e.src)
+                           if graph.nodes[g].col <= dcol}
+                else:
+                    sub = {g for g in below(e.src)
+                           if graph.nodes[g].col >= dcol}
                 group = ({e.src} | sub) - set(fwd(e.dst)) \
                     - {e.dst} or {e.src}
                 if not all(g in y for g in group):

@@ -16,7 +16,6 @@ _FILL = {
     "io": "#ffffff",
     "decision": "#ffffff",
     "hexagon": "#ffffff",
-    "connector": "#ffffff",
     "merge": "#f8fafc",
 }
 
@@ -84,12 +83,6 @@ def _node_svg(n: LNode, ox: float, oy: float) -> str:
     elif n.kind == "merge":
         # merge anchors are invisible: only the joining lines are drawn
         return ""
-    elif n.kind == "connector":
-        parts.append(
-            f'<ellipse cx="{x + w / 2:.1f}" cy="{y + h / 2:.1f}" '
-            f'rx="{w / 2:.1f}" ry="{h / 2:.1f}" fill="{fill}" '
-            f'stroke="{STROKE}" stroke-width="1.6"/>'
-        )
     # text lines, vertically centered
     lh = 16.0
     total = len(n.lines) * lh

@@ -3,6 +3,7 @@
 *.pyc
 __pycache__
 .pytest_cache/
+.pytest-tmp/
 build/
 dist/
 examples/*.svg

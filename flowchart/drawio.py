@@ -26,7 +26,6 @@ _SHAPE = {
     "io": "shape=parallelogram;perimeter=parallelogramPerimeter;"
           "fixedSize=1;size=14;",
     "decision": "rhombus;",
-    "connector": "ellipse;",
 }
 
 

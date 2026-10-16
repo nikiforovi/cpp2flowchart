@@ -35,3 +35,24 @@ def test_cli_parse_error(tmp_path: Path):
 def test_cli_missing_file(tmp_path: Path):
     rc = cli.main([str(tmp_path / "nope.cpp")])
     assert rc == 1
+
+
+def test_cli_invalid_utf8(tmp_path: Path, capsys):
+    src = tmp_path / "invalid.cpp"
+    src.write_bytes(b"// \xff\nint main() { return 0; }")
+    assert cli.main([str(src)]) == 1
+    captured = capsys.readouterr()
+    assert "не удалось прочитать файл" in captured.err
+    assert not captured.out
+    assert not src.with_suffix(".svg").exists()
+
+
+def test_cli_output_error(tmp_path: Path, capsys):
+    src = tmp_path / "prog.cpp"
+    src.write_text("int main() { return 0; }", encoding="utf-8")
+    dst = tmp_path / "missing" / "out.svg"
+    assert cli.main([str(src), "-o", str(dst)]) == 1
+    captured = capsys.readouterr()
+    assert "не удалось сохранить файл" in captured.err
+    assert not captured.out
+    assert not dst.exists()
