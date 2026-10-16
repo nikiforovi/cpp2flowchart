@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema gettext-domain="gnome-settings-daemon" id="org.gnome.settings-daemon.plugins.xsettings" path="/org/gnome/settings-daemon/plugins/xsettings/">
+    <key name="disabled-gtk-modules" type="as">
+      <default>[]</default>
+      <summary>List of explicitly disabled GTK+ modules</summary>
+      <description>A list of strings representing the GTK+ modules that will not be loaded, even if enabled by default in their configuration.</description>
+    </key>
+    <key name="enabled-gtk-modules" type="as">
+      <default>[]</default>
+      <summary>List of explicitly enabled GTK+ modules</summary>
+      <description>A list of strings representing the GTK+ modules that will be loaded, usually in addition to conditional and forcibly disabled ones.</description>
+    </key>
+    <key type="a{sv}" name="overrides">
+      <default>{}</default>
+      <summary>A dictionary of XSETTINGS to override</summary>
+      <description>This dictionary maps XSETTINGS names to overrides values. The values must be either strings, signed int32s or (in the case of colors), 4-tuples of uint16 (red, green, blue, alpha; 65535 is fully opaque).</description>
+    </key>
+    <key name="antialiasing" enum="org.gnome.settings-daemon.GsdFontAntialiasingMode">
+      <default>'grayscale'</default>
+      <summary>Antialiasing</summary>
+      <description>Compatibility key restored for GTK3/Qt apps that still read it (moved to .deprecated schema in GNOME 46).</description>
+    </key>
+    <key name="hinting" enum="org.gnome.settings-daemon.GsdFontHinting">
+      <default>'slight'</default>
+      <summary>Hinting</summary>
+      <description>Compatibility key restored for GTK3/Qt apps that still read it (moved to .deprecated schema in GNOME 46).</description>
+    </key>
+    <key name="rgba-order" enum="org.gnome.settings-daemon.GsdFontRgbaOrder">
+      <default>'rgb'</default>
+      <summary>RGBA order</summary>
+      <description>Compatibility key restored for GTK3/Qt apps that still read it (moved to .deprecated schema in GNOME 46).</description>
+    </key>
+  </schema>
+</schemalist>

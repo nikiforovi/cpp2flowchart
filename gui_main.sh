@@ -50,4 +50,21 @@ fi
 
 # Launch gui.py
 cd "$SCRIPT_DIR"
+
+# Workaround: GNOME 46 moved antialiasing/hinting keys to the
+# org.gnome.settings-daemon.plugins.xsettings.deprecated schema, but GTK3
+# (loaded via Qt's qgtk3 platform theme) still reads them from the main
+# schema and crashes with a fatal GLib-GIO-ERROR. Use a local schema copy
+# that restores those keys. Only applied if the system schema is missing
+# the key (checked via gsettings, which reports an error for missing keys).
+if ! gsettings list-keys org.gnome.settings-daemon.plugins.xsettings 2>/dev/null | grep -qx 'antialiasing'; then
+    OVERRIDE_DIR="$SCRIPT_DIR/gsettings-override"
+    if [ ! -f "$OVERRIDE_DIR/gschemas.compiled" ]; then
+        glib-compile-schemas "$OVERRIDE_DIR" 2>/dev/null || true
+    fi
+    if [ -f "$OVERRIDE_DIR/gschemas.compiled" ]; then
+        export GSETTINGS_SCHEMA_DIR="$OVERRIDE_DIR${GSETTINGS_SCHEMA_DIR:+:$GSETTINGS_SCHEMA_DIR}:/usr/share/glib-2.0/schemas"
+    fi
+fi
+
 exec "$PYTHON" gui.py "$@"
