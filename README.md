@@ -70,10 +70,25 @@ pyinstaller c2fc.spec
 Windows (сборка под wine на Linux-машине):
 
 ```bash
-WINEPREFIX=$HOME/.wine-c2fc WINEARCH=win64 wine64 python-installer.exe /quiet InstallAllUsers=0 PrependPath=1
-# затем в wine-окружении:
-WINEPREFIX=$HOME/.wine-c2fc wine64 python -m pip install -r requirements.txt
-WINEPREFIX=$HOME/.wine-c2fc wine64 python -m PyInstaller c2fc.spec --distpath dist/win
+# префикс создаётся однократно; wine32:i386 обязателен даже для win64-префикса
+sudo apt-get install wine32:i386
+
+# установка Python (если python-installer.exe ещё не скачан — скачать
+# python-3.14.6-amd64.exe с python.org и сохранить как python-installer.exe;
+# Wine 9.0 из Ubuntu 24.04 не реализует KERNEL32!CopyFile2, поэтому установщик
+# падает в конце, но Python и App Paths уже прописаны — это нормально)
+WINEPREFIX=$HOME/.wine-c2fc WINEARCH=win64 wine python-installer.exe /quiet InstallAllUsers=0 PrependPath=1
+
+# pip в Wine-Python: ensurepip падает на CopyFile2 (см. выше), поэтому — get-pip.py
+curl -sL -o get-pip.py https://bootstrap.pypa.io/get-pip.py
+WINEPREFIX=$HOME/.wine-c2fc wine python get-pip.py
+rm get-pip.py
+
+# зависимости и сборка (wine требует pty — без stdin Python падает с WinError 6,
+# поэтому запускаем через script -qec)
+script -qec 'env WINEPREFIX=$HOME/.wine-c2fc wine python -m pip install -r requirements.txt --no-input' /dev/null
+script -qec 'env WINEPREFIX=$HOME/.wine-c2fc wine python -m PyInstaller c2fc.spec --distpath dist/win --noconfirm' /dev/null
+# результат: dist/win/c2fc-gui.exe
 ```
 
 ## Структура
