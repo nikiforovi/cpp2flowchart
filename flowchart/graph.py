@@ -93,7 +93,8 @@ class _Builder:
         # every other (early) return gets its own terminal right below it
         last = func.body[-1] if func.body else None
         self.final_return = last if isinstance(last, N.Return) else None
-        # main starts with "Начало", subroutines start with their name
+        # main starts with "Начало", subroutines with their name
+        # (build_graph appends the argument list)
         start_text = "Начало" if self.is_main else func.name
         self.start = self.add("terminal", start_text)
         self.end = self.add("terminal", "Конец")
@@ -614,11 +615,10 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
     b = _Builder(func, user_funcs)
     entry = [Tail(b.start, "b")]
     if not b.is_main:
+        # the start terminator carries the call signature: func(x, y)
         names = _param_names(func.params)
         if names:
-            io = b.add("io", "Ввод: " + ", ".join(names))
-            b.connect(entry, io)
-            entry = [Tail(io, "b")]
+            b.nodes[b.start].text = f"{func.name}({', '.join(names)})"
     tails, _ = b.wire(func.body, entry)
     b.connect(tails, b.end)
     # hide unused terminators (GOST: no empty end blocks)

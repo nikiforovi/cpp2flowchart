@@ -307,8 +307,9 @@ class TestTexts:
         }
         """
         g = graph_of(src, "process")
-        io = next(n for n in g.nodes if n.kind == "io")
-        assert io.text == "Ввод: *data, &result"
+        start = next(n for n in g.nodes if n.id == g.start)
+        assert start.text == "process(*data, &result)"
+        assert not any(n.kind == "io" for n in g.nodes)
         texts = [n.text for n in g.nodes]
         assert "x = 1" in texts
         assert "result2 = 0.5" in texts

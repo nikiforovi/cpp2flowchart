@@ -107,11 +107,12 @@ class TestGraph:
         ret_node = next(n for n in g.nodes if n.id == g.ret)
         assert ret_node.kind == "skip"
 
-    def test_subroutine_params_become_input(self):
+    def test_subroutine_params_in_start_terminator(self):
         g = graph_of("int add(int a, int b) { return a + b; }")
-        io = next(n for n in g.nodes if n.kind == "io")
-        assert io.text == "Ввод: a, b"
-        assert io.col == 0
+        start = next(n for n in g.nodes if n.id == g.start)
+        assert start.text == "add(a, b)"
+        assert start.col == 0
+        assert not any(n.kind == "io" for n in g.nodes)
 
     def test_user_call_is_predefined_process(self):
         src = "void helper() {} void f() { helper(); }"
