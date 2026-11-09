@@ -142,6 +142,17 @@ class TestLoops:
         assert len(back) == 1
         assert back[0].arrow == "always"
 
+    def test_while_back_edge_ends_above_the_diamond(self):
+        # GOST: the return flow joins the line above the condition
+        # block - it must not enter the block itself
+        g = layout_of("void f() { while (c) { a(); } b(); }")
+        dec = next(n for n in g.nodes if n.kind == "decision")
+        back = next(e for e in g.edges if e.dst == dec.id
+                    and e.arrow == "always")
+        ex, ey = back.points[-1]
+        assert ey < dec.y - 4
+        assert abs(ex - (dec.x + dec.w / 2)) < 1
+
     def test_do_while_back_to_body_entry(self):
         g = graph_of("void f() { do { a(); b(); } while (c); d(); }")
         dec = next(n for n in g.nodes if n.kind == "decision")

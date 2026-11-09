@@ -233,15 +233,16 @@ def _route(a: tuple[float, float], b: tuple[float, float],
         if not down:
             # back edge: down a little, loop around the whole body on the
             # LEFT (the "нет" exit of the same loop leaves to the right, so
-            # the two never cross), rejoin the approach line above the
-            # target (never enter the target block itself).
+            # the two never cross), and end ON the approach line above the
+            # target block - never drop into the block itself (GOST: the
+            # return flow joins the line, the arrow marks the junction)
             if xc is None:
                 span = (min(yd - 16, ys + 14), max(yd - 16, ys + 14))
                 xc = _push_left(a, b, src, dst, obstacles, span) \
                     - lane * LANE_GAP
             join_y = yd - 16
             return [a, (xs, ys + 14), (xc, ys + 14), (xc, join_y),
-                    (xd, join_y), b]
+                    (xd, join_y)]
         if abs(xs - xd) < 1 and not _straight_blocked(a, b, src, dst,
                                                       obstacles):
             return [a, b]

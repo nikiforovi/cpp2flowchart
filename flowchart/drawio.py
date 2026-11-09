@@ -96,6 +96,25 @@ def _pt(parent: ET.Element, x: float, y: float, role: str | None = None):
     return ET.SubElement(parent, "mxPoint", attrs)
 
 
+def _on_perimeter(n: LNode, pt: tuple[float, float]) -> bool:
+    """Is `pt` on the border of `n` (i.e. a real port position)?
+
+    Loop-back lines end on the approach line above the target block
+    without entering it; attaching those to the block would make the
+    editor draw an extra stub into the block.
+    """
+    px, py = pt
+    eps = 1.0
+    return (
+        (abs(py - n.y) < eps and n.x - eps <= px <= n.x + n.w + eps)
+        or (abs(py - n.y - n.h) < eps
+            and n.x - eps <= px <= n.x + n.w + eps)
+        or (abs(px - n.x) < eps and n.y - eps <= py <= n.y + n.h + eps)
+        or (abs(px - n.x - n.w) < eps
+            and n.y - eps <= py <= n.y + n.h + eps)
+    )
+
+
 def _page(g: LGraph, index: int) -> ET.Element:
     ox = oy = MARGIN
     diagram = ET.Element("diagram", {"id": f"c2fc-{index}", "name": g.name})
@@ -135,11 +154,11 @@ def _page(g: LGraph, index: int) -> ET.Element:
                  f"endFill=1;startArrow=none;")
         attrs = {"id": f"e{i}", "value": "", "style": "", "edge": "1",
                  "parent": "1"}
-        if e.src in visible:
+        if e.src in visible and _on_perimeter(nodes[e.src], e.points[0]):
             attrs["source"] = f"n{e.src}"
             fx, fy = _fraction(nodes[e.src], e.points[0])
             style += f"exitX={fx};exitY={fy};exitDx=0;exitDy=0;"
-        if e.dst in visible:
+        if e.dst in visible and _on_perimeter(nodes[e.dst], e.points[-1]):
             attrs["target"] = f"n{e.dst}"
             fx, fy = _fraction(nodes[e.dst], e.points[-1])
             style += f"entryX={fx};entryY={fy};entryDx=0;entryDy=0;"
