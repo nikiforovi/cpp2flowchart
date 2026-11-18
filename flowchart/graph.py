@@ -488,11 +488,15 @@ class _Builder:
             cols.append((first, normals))
         if not has_default:
             # no default: an unmatched value bypasses all cases along the
-            # rightmost branch (empty label, no "=" prefix)
+            # rightmost branch (empty label, no "=" prefix); the continuation
+            # is allocated in that rightmost column so it never shares a
+            # column with a case branch
             bp = offs[len(s.cases)]
             bport = "b" if bp == 0 else "r"
             out.append(Tail(bus_node, bport, label=""))
-        self.cur_col = base
+            self.cur_col = base + bp
+        else:
+            self.cur_col = base
         # fallthrough: normal exits of a non-last case flow into the next
         n = len(cols)
         for i, (entry, normals) in enumerate(cols):
