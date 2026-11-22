@@ -112,11 +112,6 @@ class _Builder:
         self.cur_col = 0  # current layout column (x offset group)
         self.is_main = func.name == "main" and not func.owner
         self.user_funcs = user_funcs or set()
-        self.return_edges = 0
-        # the last top-level `return` flows into the shared end marker;
-        # every other (early) return gets its own terminal right below it
-        last = func.body[-1] if func.body else None
-        self.final_return = last if isinstance(last, N.Return) else None
         # main starts with "Начало", subroutines with their name
         # (build_graph appends the argument list); methods keep the
         # struct name so the chart says which type they belong to
@@ -252,9 +247,9 @@ class _Builder:
 
     def _Return(self, s: N.Return, tails: list[Tail]) -> list[Tail]:
         if self.is_main:
-            # main: all returns flow to the single end marker at the bottom (GOST).
-            # 'return <expr>' is shown as a value block first (the value
-            # still has to be computed before the program exits).
+            # main: all returns flow to the single end marker at the bottom
+            # (GOST). 'return <expr>' is shown as a value block first (the
+            # value still has to be computed before the program exits).
             end = self.end
             if s.value and not re.fullmatch(r"[+-]?\d+", s.value.strip()):
                 nid = self.add("process", s.value.strip())
@@ -266,13 +261,10 @@ class _Builder:
         text = "return" + (f" {s.value}" if s.value else "")
         nid = self.add("process", text)
         self.connect(tails, nid)
-        if self.return_edges == 0:
-            ret = self.ret
-            self.nodes[ret].col = self.cur_col
-        else:
-            ret = self.add("terminal", "Возврат")
-        self.edge(nid, ret, "b", "t")
-        self.return_edges += 1
+        # GOST: a subroutine has exactly one return terminator, so every
+        # `return` in the body flows into the same "Возврат" (the way all
+        # `return`s of main flow into the single "Конец")
+        self.edge(nid, self.ret, "b", "t")
         return []
 
     def _Jump(self, kind: str, tails: list[Tail]) -> list[Tail]:
@@ -646,26 +638,33 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
         if names:
             b.nodes[b.start].text = f"{display}({', '.join(names)})"
     tails, _ = b.wire(func.body, entry)
-    b.connect(tails, b.end)
+    # a subroutine always returns to its caller: its single "Возврат"
+    # collects both explicit `return`s and a plain fall-through; "Конец"
+    # belongs to main only
+    b.connect(tails, b.end if b.is_main else b.ret)
     # hide unused terminators (GOST: no empty end blocks)
-    if b.return_edges == 0:
+    if b.is_main:
         b.nodes[b.ret].kind = "skip"
-    into_end = [e for e in b.edges if e.dst == b.end]
-    if not into_end:
-        b.nodes[b.end].kind = "skip"
+        exit_id = b.end
     else:
-        # the end marker sits under the flow that reaches it (e.g. the
+        b.nodes[b.end].kind = "skip"
+        exit_id = b.ret
+    into_exit = [e for e in b.edges if e.dst == exit_id]
+    if b.is_main and not into_exit:
+        b.nodes[b.end].kind = "skip"
+    elif into_exit:
+        # the terminator sits under the flow that reaches it (e.g. the
         # "нет" column after an early-return branch)
-        cols = {b.nodes[e.src].col for e in into_end}
+        cols = {b.nodes[e.src].col for e in into_exit}
         if len(cols) == 1:
-            b.nodes[b.end].col = cols.pop()
+            b.nodes[exit_id].col = cols.pop()
     return Graph(
         name=display,
         signature=display + (f"({func.params})" if func.params else "()"),
         nodes=b.nodes,
         edges=b.edges,
         start=b.start,
-        end=b.end,
+        end=exit_id,
         ret=b.ret,
     )
 

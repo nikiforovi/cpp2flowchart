@@ -202,6 +202,34 @@ int main() {
 """
 
 
+class TestTerminators:
+    def test_subroutine_has_single_return_terminator(self):
+        g = graph_of("int f(int x) { if (x > 0) return 1; return 0; }")
+        visible = [n.text for n in g.nodes if n.kind != "skip"]
+        # GOST: a subroutine returns to its caller - no "Конец" block
+        assert visible.count("Возврат") == 1
+        assert "Конец" not in visible
+        ret = next(n for n in g.nodes if n.text == "Возврат")
+        returns = [n for n in g.nodes if n.text.startswith("return")]
+        assert len(returns) == 2
+        assert all(any(e.src == n.id and e.dst == ret.id for e in g.edges)
+                   for n in returns)
+
+    def test_fall_through_ends_at_return(self):
+        g = graph_of("void helper() { a(); }")
+        ret = next(n for n in g.nodes if n.text == "Возврат")
+        a = next(n for n in g.nodes if n.text == "a()")
+        assert ret.kind == "terminal"
+        assert any(e.src == a.id and e.dst == ret.id for e in g.edges)
+        assert "Конец" not in [n.text for n in g.nodes if n.kind != "skip"]
+
+    def test_main_keeps_single_end(self):
+        g = graph_of("int main() { if (c) return a; return b; }")
+        visible = [n.text for n in g.nodes if n.kind != "skip"]
+        assert visible.count("Конец") == 1
+        assert "Возврат" not in visible
+
+
 class TestLayout:
     def test_no_node_overlaps_demo(self):
         g = convert(DEMO)[0]
