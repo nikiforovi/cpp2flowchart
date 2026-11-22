@@ -3,8 +3,9 @@
 Конвертер исходного кода на C++ в блок-схемы (SVG или draw.io) с GUI на PyQt6.
 Парсинг — tree-sitter (tree-sitter-cpp). Поддерживаемое подмножество C++:
 переменные, присваивания, `if/else`, `while`, `do…while`, `for`,
-`switch/case/default`, `break/continue/return`, функции,
-`cin/cout`, `scanf/printf`.
+`switch/case/default`, `break/continue/return`, функции, методы
+структур/классов (каждый метод с телом — отдельная подпрограмма, его
+вызов — блок «предопределённый процесс»), `cin/cout`, `scanf/printf`.
 
 ## Установка
 
