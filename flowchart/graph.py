@@ -69,6 +69,30 @@ def _terminates(body) -> bool:
     return False
 
 
+# callee of an expression: `g(1)`, `stack->push(x)`, `ns::f()`
+_CALLEE_RE = re.compile(
+    r"^\s*([A-Za-z_]\w*(?:\s*(?:->|\.|::)\s*[A-Za-z_]\w*)*)\s*\("
+)
+
+
+def _callee(expr: str) -> tuple[str, str] | None:
+    """(full callee, last component) of a call expression, else None.
+
+    `stack->push(x)` -> ('stack->push', 'push'): the chart keeps the
+    receiver as written, while the subroutine lookup uses the plain name.
+    """
+    m = _CALLEE_RE.match(expr.strip())
+    if not m:
+        return None
+    full = m.group(1).strip()
+    return full, re.split(r"->|\.|::", full)[-1]
+
+
+def _qualified(func: N.FuncDef) -> str:
+    """Display name of a function: methods keep their struct name."""
+    return f"{func.owner}::{func.name}" if func.owner else func.name
+
+
 @dataclass
 class Graph:
     name: str
@@ -86,7 +110,7 @@ class _Builder:
         self.nodes: list[GNode] = []
         self.edges: list[GEdge] = []
         self.cur_col = 0  # current layout column (x offset group)
-        self.is_main = func.name == "main"
+        self.is_main = func.name == "main" and not func.owner
         self.user_funcs = user_funcs or set()
         self.return_edges = 0
         # the last top-level `return` flows into the shared end marker;
@@ -94,8 +118,10 @@ class _Builder:
         last = func.body[-1] if func.body else None
         self.final_return = last if isinstance(last, N.Return) else None
         # main starts with "Начало", subroutines with their name
-        # (build_graph appends the argument list)
-        start_text = "Начало" if self.is_main else func.name
+        # (build_graph appends the argument list); methods keep the
+        # struct name so the chart says which type they belong to
+        self.display = _qualified(func)
+        start_text = "Начало" if self.is_main else self.display
         self.start = self.add("terminal", start_text)
         self.end = self.add("terminal", "Конец")
         self.ret = self.add("terminal", "Возврат")
@@ -167,15 +193,15 @@ class _Builder:
     def _decl(self, s: N.VarDecl) -> tuple[str, str]:
         """(text, block kind) of one declarator."""
         # GOST: no data types on the chart; keep * and & markers
-        text = s.name + (f" = {s.init}" if s.init else "")
-        # Check if the initializer is a call to a user-defined function
+        name = re.sub(r"^([*&]+)\s+", r"\1", s.name)
+        text = name + (f" = {s.init}" if s.init else "")
+        # a declarator initialised by a call to a user-defined function
+        # (e.g. `int x = stack->pop()`) is a predefined-process block
         kind = "process"
         if s.init:
-            match = re.match(r"(\w+)\s*\(", s.init.strip())
-            if match:
-                func_name = match.group(1)
-                if func_name in self.user_funcs:
-                    kind = "predef"
+            call = _callee(s.init)
+            if call is not None and call[1] in self.user_funcs:
+                kind = "predef"
         return text, kind
 
     def _VarDecl(self, s: N.VarDecl, tails: list[Tail]) -> list[Tail]:
@@ -200,17 +226,11 @@ class _Builder:
         return tails
 
     def _Assign(self, s: N.Assign, tails: list[Tail]) -> list[Tail]:
-        # Check if the right-hand side is a call to a user-defined function
-        import re
-        match = re.match(r"(\w+)\s*\(", s.value.strip())
-        if match and s.op == "=":
-            func_name = match.group(1)
-            if func_name in self.user_funcs:
-                kind = "predef"
-            else:
-                kind = "process"
-        else:
-            kind = "process"
+        # `x = pop()` / `x = stack->pop()`: right-hand side is a call to a
+        # user-defined function -> predefined process
+        call = _callee(s.value)
+        kind = "predef" if (call is not None and s.op == "="
+                            and call[1] in self.user_funcs) else "process"
         return self._simple(f"{s.target} {s.op} {s.value}", kind, tails)
 
     def _ExprStmt(self, s: N.ExprStmt, tails: list[Tail]) -> list[Tail]:
@@ -218,7 +238,8 @@ class _Builder:
 
     def _Call(self, s: N.Call, tails: list[Tail]) -> list[Tail]:
         args = f"({s.args})" if s.args else "()"
-        kind = "predef" if s.name in self.user_funcs else "process"
+        base = re.split(r"->|\.|::", s.name)[-1]
+        kind = "predef" if base in self.user_funcs else "process"
         return self._simple(s.name + args, kind, tails)
 
     def _Input(self, s: N.Input, tails: list[Tail]) -> list[Tail]:
@@ -618,11 +639,12 @@ def for_counter_text(s: N.For) -> str:
 def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
     b = _Builder(func, user_funcs)
     entry = [Tail(b.start, "b")]
+    display = b.display
     if not b.is_main:
         # the start terminator carries the call signature: func(x, y)
         names = _param_names(func.params)
         if names:
-            b.nodes[b.start].text = f"{func.name}({', '.join(names)})"
+            b.nodes[b.start].text = f"{display}({', '.join(names)})"
     tails, _ = b.wire(func.body, entry)
     b.connect(tails, b.end)
     # hide unused terminators (GOST: no empty end blocks)
@@ -638,8 +660,8 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
         if len(cols) == 1:
             b.nodes[b.end].col = cols.pop()
     return Graph(
-        name=func.name,
-        signature=func.name + (f"({func.params})" if func.params else "()"),
+        name=display,
+        signature=display + (f"({func.params})" if func.params else "()"),
         nodes=b.nodes,
         edges=b.edges,
         start=b.start,
@@ -649,7 +671,14 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
 
 
 def build_graphs(program: N.Program) -> list[Graph]:
-    user_funcs = {f.name for f in program.funcs}
+    # a call may be written as `push(x)`, `stack->push(x)` or
+    # `Stack::push(x)`: the receiver is not resolved, the last component
+    # decides whether this is a known subroutine
+    user_funcs: set[str] = set()
+    for f in program.funcs:
+        user_funcs.add(f.name)
+        if f.owner:
+            user_funcs.add(f"{f.owner}::{f.name}")
     graphs = [build_graph(f, user_funcs) for f in program.funcs]
     # main goes first (leftmost), subroutines follow to the side
     graphs.sort(key=lambda g: 0 if g.name == "main" else 1)

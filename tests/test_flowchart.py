@@ -130,6 +130,44 @@ class TestGraph:
         assert [g.name for g in gs] == ["main", "helper"]
 
 
+class TestStructMethods:
+    SRC = """
+    struct Stack {
+        int top;
+        void push(int v) { top = v; }
+        int pop() { return top; }
+    };
+    int main() {
+        Stack s;
+        s.push(1);
+        int x = s.pop();
+        return 0;
+    }
+    """
+
+    def test_method_charts_are_built(self):
+        gs = build_graphs(parse_cpp(self.SRC))
+        assert [g.name for g in gs] == ["main", "Stack::push", "Stack::pop"]
+        start = next(n for n in gs[1].nodes if n.id == gs[1].start)
+        # the terminator carries the struct name, like a subroutine name
+        assert start.text == "Stack::push(v)"
+
+    def test_calls_are_predefined_processes(self):
+        g = next(g for g in build_graphs(parse_cpp(self.SRC))
+                 if g.name == "main")
+        call = next(n for n in g.nodes if n.text == "s.push(1)")
+        assert call.kind == "predef"
+        decl = next(n for n in g.nodes if n.text == "x = s.pop()")
+        assert decl.kind == "predef"
+
+    def test_receiver_is_not_dropped(self):
+        g = next(g for g in build_graphs(parse_cpp(self.SRC))
+                 if g.name == "main")
+        texts = node_texts(g)
+        assert "s.push(1)" in texts
+        assert "push(1)" not in texts
+
+
 def _overlaps(g):
     bad = []
     ns = g.nodes

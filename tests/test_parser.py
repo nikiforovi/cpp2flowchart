@@ -173,3 +173,32 @@ def test_case_expression_is_a_label_not_a_statement(value):
     assert labels == [value]
     assert [type(stmt) for stmt in body] == [N.Call, N.Break]
     assert body[0].name == "g"
+
+
+def test_struct_methods_are_collected_as_functions():
+    src = """
+    struct Stack {
+        int top;
+        void push(int v) { top = v; }
+        int pop() { return top; }
+    };
+    """
+    fs = funcs(src)
+    assert [(f.owner, f.name) for f in fs] == [("Stack", "push"), ("Stack", "pop")]
+    assert fs[0].params == "int v"
+    assert fs[1].ret == "int"
+
+
+def test_out_of_class_definition_keeps_struct_name():
+    fs = funcs("struct S { void m(); }; void S::m() { a(); }")
+    # the in-class declaration has no body: only the definition is a chart
+    assert [(f.owner, f.name) for f in fs] == [("S", "m")]
+
+
+def test_method_call_keeps_receiver():
+    fs = funcs("void f(Stack *s) { s->push(1); s.pop(); }")
+    arrow, dot = fs[0].body
+    assert isinstance(arrow, N.Call)
+    assert (arrow.name, arrow.args) == ("s->push", "1")
+    assert isinstance(dot, N.Call)
+    assert dot.name == "s.pop"

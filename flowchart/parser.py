@@ -17,6 +17,14 @@ _IO_CALLS = {
     "fprintf": "output", "scanf": "input", "fscanf": "input",
 }
 
+# type definitions that can carry member functions with a body
+_CLASS_TYPES = ("struct_specifier", "class_specifier", "union_specifier")
+
+
+def _call_base(name: str) -> str:
+    """Last component of a callee: `a.b`, `p->m`, `ns::f` -> `m` / `f`."""
+    return re.split(r"->|\.|::", name)[-1]
+
 
 class ParseError(Exception):
     def __init__(self, message: str, line: int = 0):
@@ -45,16 +53,27 @@ class Converter:
         self._collect_functions(root, funcs)
         return N.Program(funcs=funcs)
 
-    def _collect_functions(self, node: Node, out: list[N.FuncDef]) -> None:
+    def _collect_functions(self, node: Node, out: list[N.FuncDef],
+                           owner: str = "") -> None:
         for child in node.named_children:
             if child.type == "function_definition":
-                fn = self.function(child)
+                fn = self.function(child, owner)
                 if fn is not None:
                     out.append(fn)
             elif child.type in ("namespace_definition", "linkage_specification"):
                 self._collect_functions(
                     child.child_by_field_name("body") or child, out
                 )
+            elif child.type in _CLASS_TYPES:
+                # member functions with a body live in the class body and
+                # are ordinary subroutines on the chart (Stack::push)
+                self._collect_functions(
+                    child.child_by_field_name("body") or child, out,
+                    self.text(child.child_by_field_name("name")) or owner,
+                )
+            elif child.type in ("template_declaration", "declaration_list"):
+                self._collect_functions(child, out, owner)
+
     def statement(self, node: Node):
         t = node.type
         line = node.start_point[0] + 1
@@ -182,7 +201,7 @@ class Converter:
         return results or None
 
 
-    def function(self, node: Node) -> N.FuncDef | None:
+    def function(self, node: Node, owner: str = "") -> N.FuncDef | None:
         ret = self.text(node.child_by_field_name("type"))
         decl = node.child_by_field_name("declarator")
         name = ""
@@ -203,8 +222,12 @@ class Converter:
                     d.named_children[0] if d.named_children else None
                 )
             elif d.type == "qualified_identifier":
+                # out-of-class definition: void Stack::push(...)
+                scope = d.child_by_field_name("scope")
                 nm = d.child_by_field_name("name")
                 name = self.text(nm) or self.text(d).split("::")[-1]
+                if scope is not None:
+                    owner = self.text(scope)
                 break
             elif d.type == "identifier":
                 name = self.text(d)
@@ -218,7 +241,7 @@ class Converter:
         body = self.block(body_node) if body_node is not None else []
         return N.FuncDef(
             name=name, ret=ret or "void", params=params, body=body,
-            line=node.start_point[0] + 1,
+            line=node.start_point[0] + 1, owner=owner,
         )
 
     # ---- statements --------------------------------------------------------
@@ -344,7 +367,7 @@ class Converter:
         fn = node.child_by_field_name("function")
         args = node.child_by_field_name("arguments")
         fn_text = self.text(fn)
-        base = fn_text.split("::")[-1].split(".")[-1].split("->")[-1]
+        base = _call_base(fn_text)
         arg_text = self.text(args).strip()[1:-1] if args is not None else ""
         kind = _IO_CALLS.get(base)
         if kind == "output":
@@ -352,7 +375,8 @@ class Converter:
             return N.Output(items, line)
         if kind == "input":
             return N.Input(self._split_args(arg_text), line)
-        return N.Call(base, arg_text, line)
+        # keep the receiver: `stack->push(val)` must not lose `stack->`
+        return N.Call(fn_text, arg_text, line)
 
     @staticmethod
     def _split_args(text: str) -> list[str]:

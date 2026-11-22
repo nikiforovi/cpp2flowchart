@@ -123,6 +123,8 @@ class FuncDef(Node):
     params: str = ""
     body: list = field(default_factory=list)
     line: int = 0
+    # struct/class (or namespace) the function belongs to: `Stack::push`
+    owner: str = ""
 
 
 @dataclass
