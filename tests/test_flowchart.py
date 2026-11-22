@@ -210,10 +210,29 @@ class TestTerminators:
         assert visible.count("Возврат") == 1
         assert "Конец" not in visible
         ret = next(n for n in g.nodes if n.text == "Возврат")
+        # exactly one line enters the terminator (all exits merge first)
+        assert len([e for e in g.edges if e.dst == ret.id]) == 1
         returns = [n for n in g.nodes if n.text.startswith("return")]
         assert len(returns) == 2
-        assert all(any(e.src == n.id and e.dst == ret.id for e in g.edges)
-                   for n in returns)
+        for n in returns:
+            seen, frontier = {n.id}, {n.id}
+            while frontier:
+                frontier = {e.dst for e in g.edges if e.src in frontier} - seen
+                seen |= frontier
+            assert ret.id in seen
+
+    def test_branch_join_into_terminator_has_arrow(self):
+        from flowchart.layout import edge_arrow
+        src = ("struct S { int m(int x) { if (x) { a(); return 1; } "
+               "else { b(); return 2; } } };")
+        g = convert(src)[0]
+        ret = next(n for n in g.nodes if n.lines == ["Возврат"])
+        junction = next(n for n in g.nodes if n.kind == "merge")
+        joins = [e for e in g.edges if e.dst == junction.id]
+        # the side branch joins the main line: GOST arrow at the junction
+        assert joins and any(edge_arrow(e.points, e.arrow) for e in joins)
+        # and a single line runs from the junction into the terminator
+        assert len([e for e in g.edges if e.dst == ret.id]) == 1
 
     def test_fall_through_ends_at_return(self):
         g = graph_of("void helper() { a(); }")

@@ -120,6 +120,9 @@ class _Builder:
         self.start = self.add("terminal", start_text)
         self.end = self.add("terminal", "Конец")
         self.ret = self.add("terminal", "Возврат")
+        # flows that end with `return`; build_graph joins them (with a
+        # junction node) into the single exit terminal
+        self.exit_tails: list[Tail] = []
 
     # ---- primitives -------------------------------------------------------
     def add(self, kind: str, text: str) -> int:
@@ -246,17 +249,19 @@ class _Builder:
         return self._simple(f"Вывод: {items}", "io", tails)
 
     def _Return(self, s: N.Return, tails: list[Tail]) -> list[Tail]:
+        # `return` ends this path; the exit terminal is wired in
+        # build_graph once all exit flows are known (early returns of
+        # different branches join the main line at a single junction)
         if self.is_main:
             # main: all returns flow to the single end marker at the bottom
             # (GOST). 'return <expr>' is shown as a value block first (the
             # value still has to be computed before the program exits).
-            end = self.end
             if s.value and not re.fullmatch(r"[+-]?\d+", s.value.strip()):
                 nid = self.add("process", s.value.strip())
                 self.connect(tails, nid)
-                self.edge(nid, end, "b", "t")
+                self.exit_tails.append(Tail(nid, "b"))
             else:
-                self.connect(tails, end)
+                self.exit_tails.extend(tails)
             return []
         text = "return" + (f" {s.value}" if s.value else "")
         nid = self.add("process", text)
@@ -264,7 +269,7 @@ class _Builder:
         # GOST: a subroutine has exactly one return terminator, so every
         # `return` in the body flows into the same "Возврат" (the way all
         # `return`s of main flow into the single "Конец")
-        self.edge(nid, self.ret, "b", "t")
+        self.exit_tails.append(Tail(nid, "b"))
         return []
 
     def _Jump(self, kind: str, tails: list[Tail]) -> list[Tail]:
@@ -638,10 +643,23 @@ def build_graph(func: N.FuncDef, user_funcs: set[str] | None = None) -> Graph:
         if names:
             b.nodes[b.start].text = f"{display}({', '.join(names)})"
     tails, _ = b.wire(func.body, entry)
-    # a subroutine always returns to its caller: its single "Возврат"
-    # collects both explicit `return`s and a plain fall-through; "Конец"
-    # belongs to main only
-    b.connect(tails, b.end if b.is_main else b.ret)
+    # exit flows: every explicit `return` plus a plain fall-through.
+    # a subroutine always returns to its caller (its single "Возврат"),
+    # "Конец" belongs to main only
+    exit_id = b.end if b.is_main else b.ret
+    sources = b.exit_tails + tails
+    if len(sources) > 1:
+        # Several exits (early returns of different branches, or a return
+        # plus the fall-through). They all meet at an invisible junction
+        # on the main column: side branches join that line with an arrow
+        # (GOST), and exactly one line runs from the junction into the
+        # terminal.
+        junction = b.add("merge", "")
+        b.nodes[junction].col = b.nodes[b.start].col
+        b.connect(sources, junction)
+        b.edge(junction, exit_id, "b", "t")
+    else:
+        b.connect(sources, exit_id)
     # hide unused terminators (GOST: no empty end blocks)
     if b.is_main:
         b.nodes[b.ret].kind = "skip"
