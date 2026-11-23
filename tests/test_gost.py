@@ -573,6 +573,9 @@ ROUTING_SOURCES = [
     'int main() { int n; cin >> n; if (n < 0) { cout << "neg"; return 0; } '
     'for (int i = 0; i < n; i++) { for (int j = 0; j < n; j++) '
     '{ for (int k = 0; k < n; k++) { a(i, j, k); } } } return 0; }',
+    # the outer "нет" branch used to drop straight through the block of the
+    # inner "else" sitting in the target column above the target
+    'void f() { if (a) { if (b) x(); else y(); } else z(); w(); }',
 ] + [p.read_text(encoding="utf-8") for p in _EXAMPLES]
 
 

@@ -203,6 +203,27 @@ def _straight_blocked(a, b, src: LNode, dst: LNode,
     return False
 
 
+def _elbow_blocked(a, b, src: LNode, dst: LNode,
+                   obstacles: list[LNode] | None) -> bool:
+    """Does the plain L-route a -> (xd, ys) -> b cross a foreign block?
+
+    Used by the right/left exits that step sideways at the exit height and
+    then drop straight into the top port of the target. The target column
+    is not necessarily free above the target: a block of a neighbouring
+    branch (e.g. the "else" of a nested if) may sit there, and a straight
+    drop would run through it.
+    """
+    (xs, ys), (xd, yd) = a, b
+    for ob in obstacles or ():
+        if ob.id in (src.id, dst.id):
+            continue
+        if _crosses(min(xs, xd) - 2, max(xs, xd) + 2, ys - 2, ys + 2, ob):
+            return True
+        if _crosses(xd - 2, xd + 2, min(ys, yd), max(ys, yd), ob):
+            return True
+    return False
+
+
 def _push_right(a, b, src: LNode, dst: LNode,
                 obstacles: list[LNode] | None) -> float:
     """x of the right-hand corridor that clears every block in between."""
@@ -295,20 +316,22 @@ def _route(a: tuple[float, float], b: tuple[float, float],
             return side_join(xs)
         return side_join(xc, (xc, ys))
     if sp == "l" and dp == "t":
-        if yd > ys + 8 and xd < xs - 5:
+        if (yd > ys + 8 and xd < xs - 5
+                and not _elbow_blocked(a, b, src, dst, obstacles)):
             # mirror of the "r"->"t" fan: step left, then down
             return [a, (xd, ys), b]
-        # target in the same/right column: loop left around the source
-        # block and everything the branch has to clear, then down
+        # target in the same/right column, or its column is occupied by a
+        # block above it: loop around and come down on a clear corridor
         if xc is None:
             xc = _push_left(a, b, src, dst, obstacles) - lane * LANE_GAP
         return side_join(xc, (xc, ys))
     if sp == "r" and dp == "t":
-        if yd > ys + 8 and xd > xs + 5:
+        if (yd > ys + 8 and xd > xs + 5
+                and not _elbow_blocked(a, b, src, dst, obstacles)):
             # target centre is right of the exit point: step right, then down
             return [a, (xd, ys), b]
-        # target in the same/left column: loop right around the source
-        # block and everything the branch has to clear, then down
+        # target in the same/left column, or its column is occupied by a
+        # block above it: loop around and come down on a clear corridor
         if xc is None:
             xc = _push_right(a, b, src, dst, obstacles) + lane * LANE_GAP
         return side_join(xc, (xc, ys))
@@ -362,11 +385,15 @@ def _corridor_sides(e, a, b, src: LNode, dst: LNode,
         return ("r",)
     if sp == "l" and dp == "t":
         if yd > ys + 8 and xd < xs - 5:
-            return ()  # plain L-route (mirror of "r"->"t")
+            if not _elbow_blocked(a, b, src, dst, obstacles):
+                return ()  # plain L-route (mirror of "r"->"t")
+            return ("l", "r")  # target column blocked above the target
         return ("l",)
     if sp == "r" and dp == "t":
         if yd > ys + 8 and xd > xs + 5:
-            return ()  # plain L-route
+            if not _elbow_blocked(a, b, src, dst, obstacles):
+                return ()  # plain L-route
+            return ("r", "l")  # target column blocked above the target
         return ("r",)
     if sp == "b" and dp == "l":
         return ("l",)
@@ -722,6 +749,18 @@ def layout(graph: Graph) -> LGraph:
                 else:
                     sub = {g for g in below(e.src)
                            if graph.nodes[g].col >= dcol}
+                # A junction reached from this branch's columns pulls its
+                # horizontal joining line across the target's row. If the
+                # target started on that row, the line would run along its
+                # border (and through its port); start below the junction.
+                sub |= {
+                    g for g in below(e.src)
+                    if graph.nodes[g].kind == "merge"
+                    and any(e2.dst == g and e2.down
+                            and (col(e2.src) <= dcol if e.src_port == "l"
+                                 else col(e2.src) >= dcol)
+                            for e2 in vis_edges)
+                }
                 group = ({e.src} | sub) - set(fwd(e.dst)) \
                     - {e.dst} or {e.src}
                 if not all(g in y for g in group):
