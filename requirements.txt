@@ -1,5 +1,11 @@
 # runtime
-PyQt6==6.11.0
+# Qt 6.10+ (PyQt6-Qt6 >= 6.10) links Qt6Core.dll against icuuc.dll, which
+# Windows 10 1703+ ships in System32 but Wine (PortProton/Proton) does not.
+# There PyQt6.QtCore cannot even be imported, so PyInstaller silently drops Qt
+# plugins and the 'pkgutil' hidden import -> broken .exe.
+# Qt 6.9.2 has no ICU dependency at all, so keep PyQt6 on the 6.9.x branch.
+PyQt6==6.9.1
+PyQt6-Qt6==6.9.2
 tree-sitter==0.26.0
 tree-sitter-cpp==0.23.4
 

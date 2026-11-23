@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1395" height="2220" viewBox="0 0 1395 2220">
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#000000"/></marker></defs>
+<polyline points="206.5,92.0 206.5,136.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,174.0 206.5,218.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,272.0 206.5,316.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,354.0 206.5,398.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,436.0 206.5,480.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,538.0 206.5,582.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="214.5" y="560.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">да</text>
+<polyline points="206.5,620.0 206.5,664.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,722.0 206.5,766.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="214.5" y="744.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">да</text>
+<polyline points="206.5,804.0 206.5,848.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,886.0 206.5,930.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,988.0 206.5,1032.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="214.5" y="1010.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">да</text>
+<polyline points="206.5,1070.0 206.5,1114.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1152.0 206.5,1196.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1234.0 206.5,1278.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1332.0 206.5,1376.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1414.0 206.5,1458.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1496.0 206.5,1540.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1578.0 206.5,1622.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="285.3,959.0 307.3,959.0 307.3,1622.0 206.5,1622.0" fill="none" stroke="#000000" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="296.3" y="953.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">нет</text>
+<polyline points="206.5,1622.0 206.5,1666.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="266.5,693.0 329.3,693.0 329.3,1666.0 206.5,1666.0" fill="none" stroke="#000000" stroke-width="1.6" marker-end="url(#arrow)"/>
+<text x="297.9" y="687.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">нет</text>
+<polyline points="206.5,1666.0 206.5,1680.0 114.6,1680.0 114.6,464.0 206.5,464.0" fill="none" stroke="#000000" stroke-width="1.6" marker-end="url(#arrow)"/>
+<polyline points="266.5,509.0 351.3,509.0 351.3,1692.0 206.5,1692.0 206.5,1710.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="308.9" y="503.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">нет</text>
+<polyline points="206.5,1748.0 206.5,1792.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="206.5,1850.0 206.5,1894.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="214.5" y="1872.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">да</text>
+<polyline points="206.5,1932.0 206.5,1946.0 87.9,1946.0 87.9,1776.0 206.5,1776.0" fill="none" stroke="#000000" stroke-width="1.6" marker-end="url(#arrow)"/>
+<polyline points="285.3,1821.0 307.3,1821.0 307.3,1958.0 206.5,1958.0 206.5,1976.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="296.3" y="1815.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">нет</text>
+<polyline points="206.5,2014.0 206.5,2102.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<rect x="146.5" y="54.0" width="120.0" height="38.0" rx="19.0" ry="19.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="76.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Начало</text>
+<rect x="146.5" y="2102.0" width="120.0" height="38.0" rx="19.0" ry="19.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="2124.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Конец</text>
+<rect x="146.5" y="136.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="158.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">in = -1</text>
+<polygon points="109.7,218.0 317.4,218.0 303.4,272.0 95.7,272.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="240.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Вывод: "Input integers with</text><text x="206.5" y="256.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Enters (0 - exit):" "\n"</text>
+<rect x="86.0" y="316.0" width="241.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="338.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">*stack = new Stack{nullptr, 0}</text>
+<rect x="146.5" y="398.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="420.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">counter = 0</text>
+<polygon points="206.5,480.0 266.5,509.0 206.5,538.0 146.5,509.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="512.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">in != 0</text>
+<polygon points="160.5,582.0 266.5,582.0 252.5,620.0 146.5,620.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="604.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Ввод: in</text>
+
+<polygon points="206.5,664.0 266.5,693.0 206.5,722.0 146.5,693.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="696.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">in != 0</text>
+<rect x="146.5" y="766.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="788.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">counter++</text>
+<rect x="139.2" y="848.0" width="134.5" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><line x1="147.2" y1="848.0" x2="147.2" y2="886.0" stroke="#000000" stroke-width="1.6"/><line x1="265.8" y1="848.0" x2="265.8" y2="886.0" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="870.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">stack-&gt;push(in)</text>
+
+<polygon points="206.5,930.0 285.3,959.0 206.5,988.0 127.7,959.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="962.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">counter % 2 == 0</text>
+<rect x="128.6" y="1032.0" width="155.8" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><line x1="136.6" y1="1032.0" x2="136.6" y2="1070.0" stroke="#000000" stroke-width="1.6"/><line x1="276.4" y1="1032.0" x2="276.4" y2="1070.0" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1054.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">in2 = stack-&gt;pop()</text>
+<rect x="128.6" y="1114.0" width="155.8" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><line x1="136.6" y1="1114.0" x2="136.6" y2="1152.0" stroke="#000000" stroke-width="1.6"/><line x1="276.4" y1="1114.0" x2="276.4" y2="1152.0" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1136.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">in1 = stack-&gt;pop()</text>
+<rect x="146.3" y="1196.0" width="120.3" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1218.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">sum = in1+in2</text>
+<polygon points="130.9,1278.0 296.1,1278.0 282.1,1332.0 117.0,1332.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1300.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Вывод: "Sum of 2 prev</text><text x="206.5" y="1316.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">integers: " sum "\n"</text>
+<rect x="135.7" y="1376.0" width="141.6" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><line x1="143.7" y1="1376.0" x2="143.7" y2="1414.0" stroke="#000000" stroke-width="1.6"/><line x1="269.3" y1="1376.0" x2="269.3" y2="1414.0" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1398.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">stack-&gt;push(in1)</text>
+<rect x="135.7" y="1458.0" width="141.6" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><line x1="143.7" y1="1458.0" x2="143.7" y2="1496.0" stroke="#000000" stroke-width="1.6"/><line x1="269.3" y1="1458.0" x2="269.3" y2="1496.0" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1480.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">stack-&gt;push(in2)</text>
+<rect x="135.7" y="1540.0" width="141.6" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><line x1="143.7" y1="1540.0" x2="143.7" y2="1578.0" stroke="#000000" stroke-width="1.6"/><line x1="269.3" y1="1540.0" x2="269.3" y2="1578.0" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1562.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">stack-&gt;push(sum)</text>
+<polygon points="134.5,1710.0 292.5,1710.0 278.5,1748.0 120.5,1748.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1732.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Вывод: "Stack:" "\n"</text>
+<polygon points="206.5,1792.0 285.3,1821.0 206.5,1850.0 127.7,1821.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1824.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">stack-&gt;size != 0</text>
+<polygon points="123.9,1894.0 303.1,1894.0 289.1,1932.0 109.9,1932.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1916.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Вывод: stack-&gt;pop() ' '</text>
+<rect x="146.5" y="1976.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="206.5" y="1998.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">delete stack</text>
+<polyline points="618.2,92.0 618.2,136.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="618.2,190.0 618.2,234.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="618.2,272.0 618.2,316.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="618.2,354.0 618.2,398.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="618.2,436.0 618.2,524.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<rect x="544.4" y="54.0" width="147.6" height="38.0" rx="19.0" ry="19.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="618.2" y="76.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Stack::push(val)</text>
+<rect x="558.2" y="524.0" width="120.0" height="38.0" rx="19.0" ry="19.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="618.2" y="546.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Возврат</text>
+<rect x="519.0" y="136.0" width="198.4" height="54.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="618.2" y="158.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">*newNode = new Node{val,</text><text x="618.2" y="174.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">nullptr}</text>
+<rect x="536.8" y="234.0" width="162.9" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="618.2" y="256.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">newNode-&gt;next = top</text>
+<rect x="558.0" y="316.0" width="120.3" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="618.2" y="338.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">top = newNode</text>
+<rect x="558.2" y="398.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="618.2" y="420.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">++size</text>
+<polyline points="995.4,92.0 995.4,136.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="995.4,194.0 995.4,238.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="1003.4" y="216.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="start" stroke="#ffffff" stroke-width="3" paint-order="stroke">да</text>
+<polyline points="995.4,292.0 995.4,336.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="1067.1,165.0 1223.4,165.0 1223.4,238.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<text x="1145.2" y="159.0" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="11" fill="#334155" text-anchor="middle" stroke="#ffffff" stroke-width="3" paint-order="stroke">нет</text>
+<polyline points="1223.4,276.0 1223.4,320.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="1223.4,358.0 1223.4,402.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="1223.4,440.0 1223.4,484.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="1223.4,522.0 1223.4,566.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="1223.4,604.0 1223.4,648.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="995.4,374.0 995.4,730.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<polyline points="1223.4,686.0 1223.4,730.0 995.4,730.0" fill="none" stroke="#000000" stroke-width="1.6" marker-end="url(#arrow)"/>
+<polyline points="995.4,730.0 995.4,818.0" fill="none" stroke="#000000" stroke-width="1.6"/>
+<rect x="935.4" y="54.0" width="120.0" height="38.0" rx="19.0" ry="19.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="995.4" y="76.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Stack::pop</text>
+<rect x="935.4" y="818.0" width="120.0" height="38.0" rx="19.0" ry="19.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="995.4" y="840.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Возврат</text>
+<polygon points="995.4,136.0 1067.1,165.0 995.4,194.0 923.7,165.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="995.4" y="168.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">top == nullptr</text>
+<polygon points="923.4,238.0 1081.4,238.0 1067.4,292.0 909.4,292.0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="995.4" y="260.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">Вывод: "Error: stack</text><text x="995.4" y="276.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">underflow" "\n"</text>
+<rect x="935.4" y="336.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="995.4" y="358.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">return 0</text>
+<rect x="1163.4" y="238.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="1223.4" y="260.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">*temp = top</text>
+<rect x="1149.0" y="320.0" width="148.7" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="1223.4" y="342.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">data = temp-&gt;data</text>
+<rect x="1156.2" y="402.0" width="134.5" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="1223.4" y="424.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">top = top-&gt;next</text>
+<rect x="1163.4" y="484.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="1223.4" y="506.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">delete temp</text>
+<rect x="1163.4" y="566.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="1223.4" y="588.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">--size</text>
+<rect x="1163.4" y="648.0" width="120.0" height="38.0" rx="0" fill="#ffffff" stroke="#000000" stroke-width="1.6"/><text x="1223.4" y="670.5" font-family="DejaVu Sans, Segoe UI, Arial, sans-serif" font-size="12" fill="#000000" text-anchor="middle">return data</text>
+
+</svg>

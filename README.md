@@ -61,6 +61,15 @@ pytest
 
 ## Сборка бинарников (PyInstaller)
 
+Зависимости фиксированы в `requirements.txt`; **PyQt6 держим на ветке 6.9.x**
+(`PyQt6==6.9.1` + `PyQt6-Qt6==6.9.2`). Причина: начиная с Qt 6.10 Windows-сборка
+`Qt6Core.dll` жёстко импортирует `icuuc.dll` — ICU-библиотеку, которую поставляет
+сама Windows (System32, с 10 версии 1703+). В Wine (в т.ч. PortProton/Proton) этой
+DLL нет, поэтому там `import PyQt6.QtCore` падает, а PyInstaller без возможности
+импорта PyQt6 молча собирает «пустой» бандл без Qt-плагинов и без `pkgutil` — .exe
+завершается с `ModuleNotFoundError: No module named 'pkgutil'`. Qt 6.9.2 ICU не
+требует вовсе.
+
 Linux:
 
 ```bash
@@ -91,6 +100,24 @@ script -qec 'env WINEPREFIX=$HOME/.wine-c2fc wine python -m pip install -r requi
 script -qec 'env WINEPREFIX=$HOME/.wine-c2fc wine python -m PyInstaller c2fc.spec --distpath dist/win --noconfirm' /dev/null
 # результат: dist/win/c2fc-gui.exe
 ```
+
+Проверка перед запуском на Windows/Wine (сборка должна пройти без предупреждения
+`failed to obtain Qt library info`):
+
+```bash
+# PyQt6 импортируется в сборочном окружении (иначе spec теперь падает сам)
+script -qec 'env WINEPREFIX=$HOME/.wine-c2fc wine python -c "import PyQt6.QtCore; print(PyQt6.QtCore.QT_VERSION_STR)"' /dev/null
+
+# в бандле обязаны быть pkgutil, runtime-hook pyi_rth_pkgutil и Qt-плагины
+grep -c "'pkgutil'" build/c2fc/Analysis-00.toc        # > 0
+grep -c pyi_rth_pkgutil build/c2fc/EXE-00.toc         # > 0
+grep -c 'qwindows.dll' build/c2fc/EXE-00.toc         # > 0
+grep -c 'icuuc' build/c2fc/EXE-00.toc                 # 0
+```
+
+Если `platforms/qwindows.dll` в бандл не попал, приложение на Windows/Wine
+завершится с «could not find or load the Qt platform plugin "windows"» — значит
+сборка шла с Qt >= 6.10 (см. выше) либо PyQt6 не импортировался в окружении сборки.
 
 ## Структура
 

@@ -1,12 +1,33 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec: GUI app (c2fc-gui)."""
 
+from PyInstaller.utils.hooks.qt import pyqt6_library_info
+
+# PyInstaller's hook-PyQt6.py collects the Qt binaries, the plugins
+# (platforms/qwindows.dll, imageformats, styles, ...), the runtime hook and the
+# 'pkgutil'/'PyQt6.sip' hidden imports only when PyQt6 is importable in the
+# *build* environment. When it is not (e.g. a Wine prefix where Qt >= 6.10
+# cannot load because Wine has no icuuc.dll), the hook silently does nothing and
+# the resulting .exe dies at startup with "No module named 'pkgutil'" or
+# "could not find or load the Qt platform plugin windows". Fail loudly instead.
+if pyqt6_library_info.version is None:
+    raise SystemExit(
+        "PyQt6 is not importable in the build environment "
+        "(`python -c \"import PyQt6.QtCore\"` must work), therefore PyInstaller "
+        "would not bundle Qt plugins nor the 'pkgutil' module and the .exe "
+        "would be broken. See README, section 'Сборка бинарников'."
+    )
+
 a = Analysis(
     ["gui.py"],
     pathex=[],
     binaries=[],
     datas=[],
     hiddenimports=[
+        # PyQt6/__init__.py does `__import__('pkgutil')`; also required by
+        # PyInstaller's own runtime hook for pkgutil.iter_modules().
+        "pkgutil",
+        "PyQt6.sip",
         "PyQt6.QtCore",
         "PyQt6.QtGui",
         "PyQt6.QtWidgets",
