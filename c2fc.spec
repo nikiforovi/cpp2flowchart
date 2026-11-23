@@ -1,7 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec: GUI app (c2fc-gui)."""
 
+import os
+import sys
+
+from PyInstaller.config import CONF
 from PyInstaller.utils.hooks.qt import pyqt6_library_info
+
+# Keep platform builds apart: dist/linux/c2fc-gui, dist/win/c2fc-gui.exe.
+# Without this PyInstaller drops the single-file executable straight into
+# dist/ and a Windows build would overwrite the Linux one.
+_PLATFORM_DIR = {"win32": "win", "darwin": "macos"}.get(sys.platform, "linux")
+if os.path.basename(os.path.normpath(CONF["distpath"])) != _PLATFORM_DIR:
+    CONF["distpath"] = os.path.join(CONF["distpath"], _PLATFORM_DIR)
 
 # PyInstaller's hook-PyQt6.py collects the Qt binaries, the plugins
 # (platforms/qwindows.dll, imageformats, styles, ...), the runtime hook and the

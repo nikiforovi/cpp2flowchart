@@ -70,11 +70,19 @@ DLL нет, поэтому там `import PyQt6.QtCore` падает, а PyInsta
 завершается с `ModuleNotFoundError: No module named 'pkgutil'`. Qt 6.9.2 ICU не
 требует вовсе.
 
+Оба spec-файла сами раскладывают сборку по подкаталогу платформы
+(`dist/linux`, `dist/win`, `dist/macos`), поэтому Linux- и Windows-артефакты
+не перезаписывают друг друга. Явный `--distpath` тоже поддерживается: если он
+уже заканчивается на имя платформы, второй уровень не добавляется.
+
 Linux:
 
 ```bash
 pyinstaller c2fc.spec
 # результат: dist/linux/c2fc-gui
+
+pyinstaller c2fc-cli.spec
+# результат: dist/linux/c2fc
 ```
 
 Windows (сборка под wine на Linux-машине):
