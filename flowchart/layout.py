@@ -77,6 +77,32 @@ def edge_arrow(pts: list[tuple[float, float]], mode: str) -> bool:
     return _needs_arrow(pts)
 
 
+def _one_head_per_junction(edges: list[LEdge]) -> None:
+    """Keep at most one arrow head per shared endpoint point.
+
+    Several flows joining the same junction (a merge anchor or a shared
+    port) used to draw a head each on the very same spot: the overlapping
+    triangles turned into a black blob that read as a line broken in the
+    middle. Keep the head that actually marks a non-default flow
+    direction (GOST: arrows only where the flow runs upward or
+    right-to-left); when every joining line arrives in the default
+    direction no head is needed at all.
+    """
+    groups: dict[tuple[float, float], list[LEdge]] = {}
+    for e in edges:
+        if len(e.points) >= 2 and edge_arrow(e.points, e.arrow):
+            key = (round(e.points[-1][0], 1), round(e.points[-1][1], 1))
+            groups.setdefault(key, []).append(e)
+    for group in groups.values():
+        if len(group) < 2:
+            continue
+        needed = [e for e in group if _needs_arrow(e.points)]
+        keep = needed[0] if needed else None
+        for e in group:
+            if e is not keep:
+                e.arrow = "never"
+
+
 def _label_pos(pts: list[tuple[float, float]]) -> tuple[float, float, str]:
     """Place a branch label near the first segment long enough to hold it."""
     for i in range(len(pts) - 1):
@@ -143,6 +169,14 @@ def _port(node: LNode, port: str) -> tuple[float, float]:
 LANE_GAP = 26.0          # distance between parallel side corridors
 CORRIDOR_PAD = 14.0      # clearance between a corridor and a block
 MIN_CORRIDOR_GAP = 22.0  # two live corridors never run closer than this
+
+# A loop-back / side flow joins the approach line of the target block
+# instead of entering the block itself (GOST: the return flow joins the
+# line). The joint must be exactly the point where the approach line turns
+# down into the block: a couple of pixels off it the arrow head overlaps
+# that bend, its wings cover both the corner and the block, and the two
+# lines read as one broken polyline with an arrow in the middle.
+JOIN_UP = 18.0  # joint height above the top port of the target block
 
 
 def _iv_overlap(s0: tuple[float, float], s1: tuple[float, float]) -> float:
@@ -227,7 +261,7 @@ def _route(a: tuple[float, float], b: tuple[float, float],
         """
         if dst.kind == "merge":
             return [a, *via, (xv, yd), b]
-        return [a, *via, (xv, yd - 18), (xd, yd - 18), b]
+        return [a, *via, (xv, yd - JOIN_UP), (xd, yd - JOIN_UP), b]
 
     if sp == "b" and dp == "t":
         if not down:
@@ -237,10 +271,10 @@ def _route(a: tuple[float, float], b: tuple[float, float],
             # target block - never drop into the block itself (GOST: the
             # return flow joins the line, the arrow marks the junction)
             if xc is None:
-                span = (min(yd - 16, ys + 14), max(yd - 16, ys + 14))
+                span = (min(yd - JOIN_UP, ys + 14), max(yd - JOIN_UP, ys + 14))
                 xc = _push_left(a, b, src, dst, obstacles, span) \
                     - lane * LANE_GAP
-            join_y = yd - 16
+            join_y = yd - JOIN_UP
             return [a, (xs, ys + 14), (xc, ys + 14), (xc, join_y),
                     (xd, join_y)]
         if abs(xs - xd) < 1 and not _straight_blocked(a, b, src, dst,
@@ -257,7 +291,7 @@ def _route(a: tuple[float, float], b: tuple[float, float],
         # other line already occupies that column (e.g. the "да" branch
         # dropping straight into the same merge), so keep it short rather
         # than using the midpoint (which made the shared stretch huge)
-        if yd - 18 > ys + 10:
+        if yd - JOIN_UP > ys + 10:
             return side_join(xs)
         return side_join(xc, (xc, ys))
     if sp == "l" and dp == "t":
@@ -323,7 +357,7 @@ def _corridor_sides(e, a, b, src: LNode, dst: LNode,
                                                        obstacles):
                 return ("r", "l")  # detour on whichever side is clear
             return ()
-        if yd - 18 > ys + 10:
+        if yd - JOIN_UP > ys + 10:
             return ()  # plain Z-route
         return ("r",)
     if sp == "l" and dp == "t":
@@ -767,6 +801,7 @@ def layout(graph: Graph) -> LGraph:
     if end_id == graph.start and active_nodes:
         lowest = max(nodes.values(), key=lambda nd: nd.y + nd.h)
         end_id = lowest.id
+    _one_head_per_junction(edges)
     return LGraph(
         name=graph.name,
         signature=graph.signature,
